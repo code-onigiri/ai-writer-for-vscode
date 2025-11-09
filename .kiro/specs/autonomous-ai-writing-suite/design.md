@@ -2,12 +2,12 @@
 
 ## Overview
 AI Writer拡張は、VS Code上でアイデア入力から文章完成までを自律反復ワークフローで支援し、テンプレート化されたスタイル適用と複数AIプロバイダーの切り替えを可能にする。対象ユーザーはコンテンツプランナー、ライター、編集者であり、ワークスペース内の原稿やテンプレートをGitで管理しながら質の高い文章生成を行う。
-本設計では、基盤ロジックを共有できるBaseレイヤー、VS Code UI/コマンドを担うVscode-extレイヤー、Language Model Tool API連携を担うLMTAPI-vscodeレイヤーに分離し、Vercel AI SDKによるモデル抽象化とVS Code Language Model Providerの連携を統合する。
+本設計では、基盤ロジックを共有できるBaseレイヤー、VS Code UI/コマンドを担うVscode-extレイヤー、Language Model Tool API連携を担うLMTAPI-vscodeレイヤーに分離し、Vercel AI SDKによるモデル抽象化とVS Code Language Model Providerの連携を統合する。Gemini CLI 系統は `ai-sdk-provider-gemini-cli` を介してハブへ接続し、独自 child_process 実装を避ける。
 反復サイクル（生成→批判→考察→質問→再生成）を各フェーズで強制するステートマシンを中心に、テンプレート・パーソナライゼーション・バージョン管理を横断的に扱う。
 
 ### Goals
 - 反復的なアウトライン/文章生成フローをBaseレイヤーで再利用可能に提供する。
-- OpenAI/Gemini API、Gemini CLI、Language Model Tool APIの三系統プロバイダーを統一インターフェースで制御する。
+- OpenAI/Gemini API、Gemini CLI（`ai-sdk-provider-gemini-cli`）、Language Model Tool APIの三系統プロバイダーを統一インターフェースで制御する。
 - VS Code上でテンプレート編集、進捗管理、履歴比較を可能にする拡張UIを実装する。
 - テンプレート指示とパーソナライズ情報をポイント単位でAI推論に適用し、遵守状況を可視化する。
 
@@ -43,7 +43,7 @@ graph TD
     subgraph Providers
         OpenAIProv[OpenAI Provider]
         GeminiAPIProv[Gemini API Provider]
-        GeminiCLIProv[Gemini CLI Adapter]
+  GeminiCLIProv[Gemini CLI Provider]
         LMTBridge[LMTAPI Provider Bridge]
     end
     VSUI --> VSCmd
@@ -75,7 +75,7 @@ graph TD
 - **ランタイム**: Node.js 18 (ES2022, VS Code拡張互換)
 - **言語/型**: TypeScript (TSConfig strict, noImplicitAny)
 - **AIクライアント**: Vercel AI SDK (`@ai-sdk/openai`, `@ai-sdk/google`)、`ai`コア
-- **CLI統合**: Gemini CLI（`npx @google/generative-ai`）をchild_process経由で呼び出し
+- **CLI統合**: `ai-sdk-provider-gemini-cli` を利用して Gemini CLI と Vercel AI SDK のレジストリを接続
 - **VS Code API**: Language Model Chat Provider / Tool API 1.95+
 - **データ永続化**: ワークスペース内`.ai-writer/`（JSON/YAML）+ Git
 - **ダイアグラム/ビュー**: VS Code Webview (React/Vanilla)、TreeView API
@@ -97,12 +97,12 @@ graph TD
   - **Rationale**: 再利用性・テスト容易性向上
   - **Trade-offs**: ステート管理の初期実装コスト増
 
-- **Decision**: Gemini CLIを非同期ジョブとしてアダプト
+- **Decision**: Gemini CLIを `ai-sdk-provider-gemini-cli` で統合
   - **Context**: CLI経由でしか提供されない環境での互換性確保
-  - **Alternatives**: REST APIで代替、サードパーティライブラリ
-  - **Selected Approach**: 非同期child_process呼び出し＋JSON出力解析
-  - **Rationale**: CLI依存環境でも同一体験提供
-  - **Trade-offs**: プロセス起動コスト、CLIバージョン管理が必要
+  - **Alternatives**: REST APIで代替、独自 child_process 実装
+  - **Selected Approach**: `ai-sdk-provider-gemini-cli` を AISDK Hub に登録し、CLI 呼び出しとストリーミングをライブラリへ委譲
+  - **Rationale**: 既製プロバイダーでエラー処理と CLI 呼び出し管理を共通化し、保守範囲を縮小
+  - **Trade-offs**: 外部ライブラリ更新への追従、パッケージの API 変更リスク
 
 ## System Flows
 
@@ -163,7 +163,7 @@ sequenceDiagram
 | R2 | アウトラインから文章生成 | Orchestrator, TemplateRegistry, AISDKHub, Storage | `GenerationOrchestrator.startDraftCycle`, `StorageGateway.saveDraft` | テンプレート適用ドラフトフロー |
 | R3 | パーソナライゼーション管理 | PersonaManager, TemplateRegistry, VS Settings | `PersonaManager.upsertPersona`, `TemplateRegistry.applyPersona` | テンプレート適用ドラフトフロー |
 | R4 | バージョン管理 | StorageService, AuditLogger, VSCodeUI | `StorageGateway.commitDraft`, `AuditLogger.append` | テンプレート適用ドラフトフロー |
-| R5 | 推敲・プロバイダー連携 | AISDKHub, GeminiCLIAdapter, VS UI | `AISDKHub.execute`, `GeminiCLIAdapter.execute` | アウトライン反復フロー |
+| R5 | 推敲・プロバイダー連携 | AISDKHub, Gemini CLI Provider, VS UI | `AISDKHub.execute`, `GeminiCliProvider.execute` | アウトライン反復フロー |
 | R6 | ライティングテンプレート作成 | TemplateRegistry, VSCodeUI, Orchestrator | `TemplateRegistry.createTemplate`, `GenerationOrchestrator.applyTemplatePoint` | テンプレート適用ドラフトフロー |
 
 ## Components and Interfaces
@@ -293,7 +293,7 @@ type PersonaDefinition = {
 
 #### AISDK Hub
 - **Responsibility**: Vercel AI SDK上のプロバイダー登録・実行・フェールオーバー制御を一元管理。
-- **Dependencies**: OpenAI Provider、Gemini API Provider、Gemini CLI Adapter、LMTAPI Bridge、`ai`パッケージの`createProviderRegistry`。
+- **Dependencies**: OpenAI Provider、Gemini API Provider、Gemini CLI Provider（`ai-sdk-provider-gemini-cli`）、LMTAPI Bridge、`ai`パッケージの`createProviderRegistry`。
 
 **Contract**
 ```typescript
@@ -448,7 +448,7 @@ type ComplianceSnapshot = {
 
 ### Data Contracts & Integration
 - プロバイダー要求は共通`ProviderPayload`（JSON）でラップ。
-- Gemini CLI出力はJSONパース必須、失敗時は`provider_failure`でリトライ。
+- Gemini CLIプロバイダー（`ai-sdk-provider-gemini-cli`）は内部でCLI呼び出しとJSON正規化を処理するため、Hub側は結果の成功可否と再試行ポリシーに集中する。
 - LMTAPIは`LanguageModelChatRequestMessage`→Base用ペイロードに変換。
 
 ## Error Handling
@@ -460,7 +460,7 @@ type ComplianceSnapshot = {
 
 ### Error Categories and Responses
 - **User Errors (400系)**: テンプレート不備、APIキー未設定→UIでフィードバックと設定誘導。
-- **System Errors (500系)**: ファイルI/O、CLI失敗→再試行案内とログ出力。
+- **System Errors (500系)**: ファイルI/O、Gemini CLIプロバイダー失敗→再試行案内とログ出力。
 - **Business Logic Errors (422)**: ステート不整合→ステップ順序修正ガイダンス。
 
 ### Monitoring
