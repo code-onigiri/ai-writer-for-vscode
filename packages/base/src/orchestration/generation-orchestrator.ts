@@ -1,4 +1,5 @@
 import { createIterationEngine, type IterationEngine, type IterationStep } from './iteration-engine.js';
+
 import type {
   DraftInput,
   DraftSessionSummary,
@@ -14,7 +15,9 @@ import type {
 
 /**
  * Dependencies for Generation Orchestrator
+ * @remarks This interface is intentionally empty for now and will be populated as components are implemented
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface GenerationOrchestratorDependencies {
   // Will be added as we implement other components
 }
@@ -44,15 +47,14 @@ export interface GenerationOrchestrator {
 /**
  * Session storage for in-memory session management
  */
-interface SessionStore {
-  [sessionId: string]: SessionSnapshot;
-}
+type SessionStore = Record<string, SessionSnapshot>;
 
 /**
  * Creates a Generation Orchestrator instance
  */
 export function createGenerationOrchestrator(
-  options: GenerationOrchestratorOptions = {},
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _options: GenerationOrchestratorOptions = {},
 ): GenerationOrchestrator {
   const iterationEngine = createIterationEngine();
   const sessions: SessionStore = {};

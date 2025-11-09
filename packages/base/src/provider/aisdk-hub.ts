@@ -1,4 +1,5 @@
 import { generateText, streamText, type LanguageModel } from 'ai';
+
 import type {
   ProviderChannelKey,
   ProviderFault,
@@ -44,9 +45,7 @@ export interface AISDKHub {
 /**
  * Provider registry
  */
-interface ProviderRegistry {
-  [key: string]: ProviderChannel;
-}
+type ProviderRegistry = Record<string, ProviderChannel>;
 
 /**
  * Request statistics
@@ -62,9 +61,7 @@ interface RequestStats {
 /**
  * Statistics storage
  */
-interface StatisticsStore {
-  [key: string]: RequestStats;
-}
+type StatisticsStore = Record<string, RequestStats>;
 
 /**
  * Creates an AISDK Hub instance

@@ -1,4 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
+
 import type { ProviderChannel } from '../aisdk-hub.js';
 import type { ConfigurationService } from '../../config/index.js';
 

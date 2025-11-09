@@ -1,4 +1,5 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+
 import type { ProviderChannel } from '../aisdk-hub.js';
 import type { ConfigurationService } from '../../config/index.js';
 

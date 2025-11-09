@@ -23,16 +23,12 @@ export interface TemplateRegistry {
 /**
  * Template storage for in-memory persistence
  */
-interface TemplateStore {
-  [templateId: string]: TemplateDescriptor;
-}
+type TemplateStore = Record<string, TemplateDescriptor>;
 
 /**
  * Compliance storage for session compliance history
  */
-interface ComplianceStore {
-  [sessionId: string]: ComplianceSnapshot[];
-}
+type ComplianceStore = Record<string, ComplianceSnapshot[]>;
 
 /**
  * Creates a Template Registry instance

@@ -38,16 +38,12 @@ export interface PersonaManager {
 /**
  * Persona storage for in-memory persistence
  */
-interface PersonaStore {
-  [personaId: string]: PersonaDefinition;
-}
+type PersonaStore = Record<string, PersonaDefinition>;
 
 /**
  * Application history storage
  */
-interface ApplicationHistoryStore {
-  [sessionId: string]: PersonaApplicationHistory[];
-}
+type ApplicationHistoryStore = Record<string, PersonaApplicationHistory[]>;
 
 /**
  * Creates a Persona Manager instance
