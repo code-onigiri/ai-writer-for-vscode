@@ -16,8 +16,26 @@ export interface TemplateRegistry {
   updateTemplate(id: string, updates: Partial<TemplateDraft>): Promise<TemplateResult<TemplateDescriptor>>;
   deleteTemplate(id: string): Promise<TemplateResult<void>>;
   listTemplates(): Promise<TemplateResult<readonly TemplateDescriptor[]>>;
+  updateTemplatePoint(templateId: string, pointId: string, updates: Partial<TemplatePoint>): Promise<TemplateResult<TemplateDescriptor>>;
   recordCompliance(sessionId: string, pointId: string, compliance: ComplianceSnapshot): Promise<void>;
   getComplianceHistory(sessionId: string): Promise<TemplateResult<readonly ComplianceSnapshot[]>>;
+  getComplianceReport(sessionId: string): Promise<TemplateResult<ComplianceReport>>;
+}
+
+/**
+ * Compliance report for a session
+ */
+export interface ComplianceReport {
+  sessionId: string;
+  totalPoints: number;
+  compliantPoints: number;
+  complianceRate: number;
+  pointReports: {
+    pointId: string;
+    compliant: boolean;
+    notes: string;
+    timestamp: string;
+  }[];
 }
 
 /**
@@ -53,11 +71,17 @@ export function createTemplateRegistry(): TemplateRegistry {
     listTemplates: async () => {
       return listTemplatesImpl(templates);
     },
+    updateTemplatePoint: async (templateId: string, pointId: string, updates: Partial<TemplatePoint>) => {
+      return updateTemplatePointImpl(templateId, pointId, updates, templates);
+    },
     recordCompliance: async (sessionId: string, pointId: string, complianceData: ComplianceSnapshot) => {
       return recordComplianceImpl(sessionId, pointId, complianceData, compliance);
     },
     getComplianceHistory: async (sessionId: string) => {
       return getComplianceHistoryImpl(sessionId, compliance);
+    },
+    getComplianceReport: async (sessionId: string) => {
+      return getComplianceReportImpl(sessionId, compliance);
     },
   };
 }
@@ -275,6 +299,103 @@ function validateTemplatePoint(point: TemplatePoint): TemplateError | null {
   }
 
   return null;
+}
+
+/**
+ * Implementation of updateTemplatePoint
+ */
+async function updateTemplatePointImpl(
+  templateId: string,
+  pointId: string,
+  updates: Partial<TemplatePoint>,
+  templates: TemplateStore,
+): Promise<TemplateResult<TemplateDescriptor>> {
+  const template = templates[templateId];
+  if (!template) {
+    return {
+      kind: 'err',
+      error: createTemplateError('template_not_found', `Template with ID "${templateId}" not found`, false),
+    };
+  }
+
+  // Find the point to update
+  const pointIndex = template.points?.findIndex(p => p.id === pointId) ?? -1;
+  if (pointIndex === -1) {
+    return {
+      kind: 'err',
+      error: createTemplateError('invalid_template', `Point with ID "${pointId}" not found in template`, false),
+    };
+  }
+
+  // Create updated points array
+  const updatedPoints = [...(template.points || [])];
+  updatedPoints[pointIndex] = {
+    ...updatedPoints[pointIndex],
+    ...updates,
+  };
+
+  // Update template
+  const updatedTemplate: TemplateDescriptor = {
+    ...template,
+    points: updatedPoints,
+    metadata: {
+      ...template.metadata,
+      updatedAt: new Date().toISOString(),
+    },
+  };
+
+  templates[templateId] = updatedTemplate;
+  return { kind: 'ok', value: updatedTemplate };
+}
+
+/**
+ * Implementation of getComplianceReport
+ */
+async function getComplianceReportImpl(
+  sessionId: string,
+  compliance: ComplianceStore,
+): Promise<TemplateResult<ComplianceReport>> {
+  const history = compliance[sessionId] || [];
+  
+  if (history.length === 0) {
+    return {
+      kind: 'ok',
+      value: {
+        sessionId,
+        totalPoints: 0,
+        compliantPoints: 0,
+        complianceRate: 0,
+        pointReports: [],
+      },
+    };
+  }
+
+  // Get the latest compliance for each point
+  const latestCompliance = new Map<string, ComplianceSnapshot>();
+  for (const snapshot of history) {
+    latestCompliance.set(snapshot.pointId, snapshot);
+  }
+
+  const pointReports = Array.from(latestCompliance.values()).map(snapshot => ({
+    pointId: snapshot.pointId,
+    compliant: snapshot.adhered,
+    notes: snapshot.notes || '',
+    timestamp: snapshot.timestamp,
+  }));
+
+  const compliantCount = pointReports.filter(p => p.compliant).length;
+  const totalCount = pointReports.length;
+
+  return {
+    kind: 'ok',
+    value: {
+      sessionId,
+      totalPoints: totalCount,
+      compliantPoints: compliantCount,
+      complianceRate: totalCount > 0 ? compliantCount / totalCount : 0,
+      pointReports,
+    },
+  };
 }
 
 /**
