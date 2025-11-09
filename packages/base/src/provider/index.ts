@@ -21,3 +21,10 @@ export type {
   TemplatePointContext,
   ToolInstruction,
 } from './types.js';
+
+export {
+  createOpenAIChannel,
+  type OpenAIChannelOptions,
+  createGeminiChannel,
+  type GeminiChannelOptions,
+} from './channels/index.js';

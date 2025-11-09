@@ -1,4 +1,4 @@
-export type ProviderKey = 'openai' | 'geminiApi' | 'geminiCli' | 'lmtBridge';
+export type ProviderKey = 'openai' | 'gemini-api' | 'gemini-cli' | 'lmtapi';
 
 export type ConfigurationSource = 'secret-storage' | 'environment' | 'unset';
 
