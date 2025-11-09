@@ -9,8 +9,24 @@
   "engines": {
     "vscode": "^1.95.0"
   },
-  "activationEvents": [],
-  "contributes": {},
+  "activationEvents": [
+    "onCommand:ai-writer.startOutline",
+    "onCommand:ai-writer.startDraft"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-writer.startOutline",
+        "title": "AI Writer: Start Outline Generation",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.startDraft",
+        "title": "AI Writer: Start Draft Generation",
+        "category": "AI Writer"
+      }
+    ]
+  },
   "files": [
     "dist"
   ],

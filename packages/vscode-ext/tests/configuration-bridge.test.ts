@@ -48,7 +48,7 @@ describe('createConfigurationServiceBridge', () => {
       environment: { GEMINI_CLI_PATH: '/usr/local/bin/gemini' },
     });
 
-    const config = await bridge.getProviderConfig('geminiCli');
+    const config = await bridge.getProviderConfig('gemini-cli');
     expect(config.values.cliPath).toBe('/usr/local/bin/gemini');
   });
 });

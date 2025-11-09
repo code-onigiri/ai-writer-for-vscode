@@ -10,7 +10,7 @@ export const providerFieldDefinitions: Record<ProviderKey, readonly ProviderFiel
       description: 'OpenAI API key used for outline and draft generation.',
     },
   ],
-  geminiApi: [
+  'gemini-api': [
     {
       field: 'apiKey',
       secretKey: 'ai-writer.providers.google.apiKey',
@@ -19,7 +19,7 @@ export const providerFieldDefinitions: Record<ProviderKey, readonly ProviderFiel
       description: 'Gemini API key for Google-hosted Gemini endpoints.',
     },
   ],
-  geminiCli: [
+  'gemini-cli': [
     {
       field: 'cliPath',
       secretKey: 'ai-writer.providers.gemini.cliPath',
@@ -28,7 +28,7 @@ export const providerFieldDefinitions: Record<ProviderKey, readonly ProviderFiel
       description: 'Filesystem path to the Gemini CLI executable.',
     },
   ],
-  lmtBridge: [
+  lmtapi: [
     {
       field: 'accessToken',
       secretKey: 'ai-writer.providers.lmt.accessToken',

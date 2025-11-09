@@ -31,7 +31,7 @@ describe('ConfigurationService', () => {
       },
     });
 
-    const config = await service.getProviderConfig('geminiApi');
+    const config = await service.getProviderConfig('gemini-api');
     expect(config.values.apiKey).toBe('env-google');
     expect(config.sources.apiKey).toBe('environment');
   });
@@ -41,13 +41,13 @@ describe('ConfigurationService', () => {
       secretProvider: createInMemorySecretProvider({}),
     });
 
-    const config = await service.getProviderConfig('lmtBridge');
+    const config = await service.getProviderConfig('lmtapi');
     expect(config.values.accessToken).toBeUndefined();
     expect(config.missing).toContain('accessToken');
     expect(config.isConfigured).toBe(false);
   });
 
   it('lists all known provider keys for diagnostics', () => {
-    expect(knownProviderKeys()).toEqual(['openai', 'geminiApi', 'geminiCli', 'lmtBridge']);
+    expect(knownProviderKeys()).toEqual(['openai', 'gemini-api', 'gemini-cli', 'lmtapi']);
   });
 });

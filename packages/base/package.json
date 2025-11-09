@@ -33,8 +33,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-  "lint": "ESLINT_USE_FLAT_CONFIG=false eslint \"src/**/*.ts\"",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint \"src/**/*.ts\"",
     "test": "vitest run"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@ai-sdk/google": "^2.0.29",
+    "@ai-sdk/openai": "^2.0.64",
+    "ai": "^5.0.89"
+  }
 }
