@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import type { CommandContext, CommandHandler } from './types.js';
+
+import type { CommandContext, CommandHandler, OrchestratorLike } from './types.js';
 
 /**
  * Command descriptor
@@ -15,17 +16,19 @@ interface CommandDescriptor<TInput = unknown, TOutput = unknown> {
  * Command Controller
  */
 export class CommandController {
-  private readonly commands: Map<string, CommandDescriptor> = new Map();
+  private readonly commands: Map<string, CommandDescriptor> = new Map<string, CommandDescriptor>();
   private readonly disposables: vscode.Disposable[] = [];
   private readonly context: CommandContext;
 
   constructor(
     extensionContext: vscode.ExtensionContext,
     outputChannel: vscode.OutputChannel,
+  orchestrator?: OrchestratorLike,
   ) {
     this.context = {
       extensionContext,
       outputChannel,
+      orchestrator,
     };
   }
 

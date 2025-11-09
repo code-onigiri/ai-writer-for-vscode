@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+
 import type { CommandHandler } from '../types.js';
 
 /**
@@ -37,15 +38,32 @@ export const startDraftHandler: CommandHandler<StartDraftInput, string> = async 
       }
     }
 
-    // TODO: Integrate with Generation Orchestrator
+    // Integrate with orchestrator if available
+    if (!context.orchestrator) {
+      const msg = 'Orchestrator is not available in the extension context.';
+      context.outputChannel.appendLine(msg);
+      vscode.window.showErrorMessage(msg);
+      return { kind: 'err', error: msg };
+    }
+
     context.outputChannel.appendLine(`Starting draft generation for outline: ${outlineId}`);
-    
-    // For now, return a placeholder session ID
-    const sessionId = `draft-session-${Date.now()}`;
-    
-    vscode.window.showInformationMessage(`Started draft generation (Session: ${sessionId})`);
-    
-    return { kind: 'ok', value: sessionId };
+
+    const result = await context.orchestrator.startDraftCycle({
+      outlineId,
+      personaId: input?.personaId,
+      templateId: input?.templateId,
+    });
+
+    if (result.kind === 'ok' && result.value) {
+      const sessionId = result.value.sessionId;
+      vscode.window.showInformationMessage(`Started draft generation (Session: ${sessionId})`);
+      return { kind: 'ok', value: sessionId };
+    }
+
+    const errMsg = result.kind === 'err' && result.error ? result.error.message ?? String(result.error) : 'Unknown error from orchestrator';
+    context.outputChannel.appendLine(`Draft generation failed: ${errMsg}`);
+    vscode.window.showErrorMessage(`Draft generation failed: ${errMsg}`);
+    return { kind: 'err', error: errMsg };
   } catch (error) {
     return {
       kind: 'err',
