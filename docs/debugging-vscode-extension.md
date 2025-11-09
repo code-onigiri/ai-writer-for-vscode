@@ -26,8 +26,11 @@ VSCode拡張機能をビルドする前に、依存するbaseパッケージを�
 # すべてのパッケージをビルド
 pnpm build
 
-# または、vscode-extパッケージのみをビルド（baseは自動的にビルドされます）
-pnpm --filter @ai-writer/vscode-ext build
+# または、vscode-extとその依存関係を一括ビルド（推奨）
+pnpm run build:vscode
+
+# baseパッケージのみをビルド
+pnpm run build:base
 ```
 
 ### 3. デバッグの開始
@@ -171,6 +174,10 @@ pnpm --filter @ai-writer/vscode-ext build
 ファイル変更時に自動的にリビルドする場合は、別のターミナルで以下を実行：
 
 ```bash
+# watchモードでビルド
+pnpm run build:watch
+
+# または直接実行
 pnpm --filter @ai-writer/vscode-ext build --watch
 ```
 
