@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node", "vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@ai-writer/base": ["packages/base/src/index.ts"],
+      "@ai-writer/base/*": ["packages/base/src/*"],
+      "@ai-writer/vscode-ext": ["packages/vscode-ext/src/index.ts"],
+      "@ai-writer/vscode-ext/*": ["packages/vscode-ext/src/*"],
+      "@ai-writer/lmtapi-vscode": ["packages/lmtapi-vscode/src/index.ts"],
+      "@ai-writer/lmtapi-vscode/*": ["packages/lmtapi-vscode/src/*"]
+    }
+  }
+}

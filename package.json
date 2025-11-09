@@ -2,7 +2,30 @@
   "name": "ai-writer-workspace",
   "private": true,
   "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=18.20.0"
+  },
   "scripts": {
-    "test": "node ./scripts/run-all-tests.js"
+    "build": "pnpm -r --filter './packages/*' run build",
+    "typecheck": "pnpm -r --filter './packages/*' run typecheck",
+    "lint": "pnpm -r --filter './packages/*' run lint",
+    "test": "vitest run",
+    "test:packages": "pnpm -r --filter './packages/*' run test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:packages"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/vscode": "^1.95.0",
+    "@typescript-eslint/eslint-plugin": "^8.9.0",
+    "@typescript-eslint/parser": "^8.9.0",
+    "eslint": "^9.11.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.29.1",
+    "typescript": "^5.6.2",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^1.6.0",
+    "yaml": "^2.5.1"
   }
 }

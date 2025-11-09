@@ -1,0 +1,4 @@
+node_modules
+packages/base/dist
+packages/lmtapi-vscode/dist
+packages/vscode-ext/dist

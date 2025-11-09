@@ -1,0 +1,26 @@
+{
+  "name": "@ai-writer/vscode-ext",
+  "displayName": "AI Writer VS Code Extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/extension.js",
+  "types": "dist/extension.d.ts",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "activationEvents": [],
+  "contributes": {},
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+  "lint": "ESLINT_USE_FLAT_CONFIG=false eslint \"src/**/*.ts\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-writer/base": "workspace:*"
+  }
+}
