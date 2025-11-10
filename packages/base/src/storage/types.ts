@@ -38,6 +38,35 @@ export interface DraftCommitInput {
 }
 
 /**
+ * Version metadata for stored items
+ */
+export interface VersionMetadata {
+  readonly version: number;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly checksum?: string;
+}
+
+/**
+ * Versioned storage item
+ */
+export interface VersionedItem<T> {
+  readonly data: T;
+  readonly metadata: VersionMetadata;
+}
+
+/**
+ * Storage statistics
+ */
+export interface StorageStatistics {
+  readonly totalSessions: number;
+  readonly totalTemplates: number;
+  readonly totalPersonas: number;
+  readonly storageSize: number; // bytes
+  readonly lastUpdated: string;
+}
+
+/**
  * Storage path configuration
  */
 export interface StoragePathConfig {
@@ -46,4 +75,5 @@ export interface StoragePathConfig {
   readonly templatesDir: string;
   readonly personasDir: string;
   readonly logsDir: string;
+  readonly versionsDir?: string;
 }

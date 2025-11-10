@@ -6,3 +6,10 @@ export {
   type DebugEntry,
   type DebugSink,
 } from './debug-tracer.js';
+export {
+  createAuditAnalyzer,
+  type AuditAnalyzer,
+  type AuditAnalyzerOptions,
+  type AuditLogEntry,
+  type AuditStatistics,
+} from './audit-analyzer.js';

@@ -31,23 +31,29 @@ export interface PersonaManager {
   deletePersona(id: string): Promise<PersonaResult<void>>;
   listPersonas(): Promise<PersonaResult<readonly PersonaDefinition[]>>;
   applyPersona(templateId: string, personaId: string): Promise<PersonaResult<TemplateDescriptor>>;
+  validatePersonaTemplateCompatibility(personaId: string, templateId: string): Promise<PersonaResult<ValidationResult>>;
   recordApplication(history: PersonaApplicationHistory): Promise<void>;
   getApplicationHistory(sessionId: string): Promise<PersonaResult<readonly PersonaApplicationHistory[]>>;
 }
 
 /**
+ * Validation result for persona-template compatibility
+ */
+export interface ValidationResult {
+  compatible: boolean;
+  warnings: string[];
+  suggestions: string[];
+}
+
+/**
  * Persona storage for in-memory persistence
  */
-interface PersonaStore {
-  [personaId: string]: PersonaDefinition;
-}
+type PersonaStore = Record<string, PersonaDefinition>;
 
 /**
  * Application history storage
  */
-interface ApplicationHistoryStore {
-  [sessionId: string]: PersonaApplicationHistory[];
-}
+type ApplicationHistoryStore = Record<string, PersonaApplicationHistory[]>;
 
 /**
  * Creates a Persona Manager instance
@@ -75,6 +81,9 @@ export function createPersonaManager(options: PersonaManagerOptions = {}): Perso
     },
     applyPersona: async (templateId: string, personaId: string) => {
       return applyPersonaImpl(templateId, personaId, personas, templateRegistry);
+    },
+    validatePersonaTemplateCompatibility: async (personaId: string, templateId: string) => {
+      return validatePersonaTemplateCompatibilityImpl(personaId, templateId, personas, templateRegistry);
     },
     recordApplication: async (history: PersonaApplicationHistory) => {
       return recordApplicationImpl(history, applicationHistory);
@@ -341,6 +350,96 @@ function validatePersonaDraft(draft: PersonaDraft): PersonaError | null {
   }
 
   return null;
+}
+
+/**
+ * Implementation of validatePersonaTemplateCompatibility
+ */
+async function validatePersonaTemplateCompatibilityImpl(
+  personaId: string,
+  templateId: string,
+  personas: PersonaStore,
+  templateRegistry: TemplateRegistry | undefined,
+): Promise<PersonaResult<ValidationResult>> {
+  // Check if persona exists
+  const persona = personas[personaId];
+  if (!persona) {
+    return {
+      kind: 'err',
+      error: createPersonaError('persona_not_found', `Persona with ID "${personaId}" not found`, false),
+    };
+  }
+
+  // If no template registry, we can't validate
+  if (!templateRegistry) {
+    return {
+      kind: 'ok',
+      value: {
+        compatible: true,
+        warnings: ['Template registry not available for validation'],
+        suggestions: [],
+      },
+    };
+  }
+
+  // Load template
+  const templateResult = await templateRegistry.loadTemplate(templateId);
+  if (templateResult.kind === 'err') {
+    return {
+      kind: 'err',
+      error: createPersonaError(
+        'template_not_found',
+        `Template with ID "${templateId}" not found`,
+        false,
+      ),
+    };
+  }
+
+  const template = templateResult.value;
+  const warnings: string[] = [];
+  const suggestions: string[] = [];
+
+  // Check if persona hints are compatible
+  const personaHints = template.metadata.personaHints || [];
+  
+  // Check for tone compatibility
+  const toneHints = personaHints.filter(h => h.startsWith('tone:'));
+  if (toneHints.length > 0) {
+    const expectedTones = toneHints.map(h => h.substring(5));
+    if (!expectedTones.includes(persona.tone)) {
+      warnings.push(`Persona tone "${persona.tone}" may not match template expectations: ${expectedTones.join(', ')}`);
+      suggestions.push(`Consider adjusting persona tone to match template requirements`);
+    }
+  }
+
+  // Check for audience compatibility
+  const audienceHints = personaHints.filter(h => h.startsWith('audience:'));
+  if (audienceHints.length > 0) {
+    const expectedAudiences = audienceHints.map(h => h.substring(9));
+    if (!expectedAudiences.includes(persona.audience)) {
+      warnings.push(`Persona audience "${persona.audience}" may not match template expectations: ${expectedAudiences.join(', ')}`);
+      suggestions.push(`Consider adjusting persona audience to match template requirements`);
+    }
+  }
+
+  // Check toggles compatibility
+  const toggleHints = personaHints.filter(h => h.startsWith('toggle:'));
+  const requiredToggles = toggleHints.map(h => h.substring(7));
+  const missingToggles = requiredToggles.filter(t => !(t in (persona.toggles || {})));
+  
+  if (missingToggles.length > 0) {
+    warnings.push(`Persona missing toggles expected by template: ${missingToggles.join(', ')}`);
+    suggestions.push(`Add missing toggles: ${missingToggles.join(', ')}`);
+  }
+
+  return {
+    kind: 'ok',
+    value: {
+      compatible: warnings.length === 0,
+      warnings,
+      suggestions,
+    },
+  };
 }
 
 /**

@@ -1,4 +1,6 @@
 import { generateText, streamText, type LanguageModel } from 'ai';
+
+import type { AuditLogger } from '../logging/audit-logger.js';
 import type {
   ProviderChannelKey,
   ProviderFault,
@@ -22,12 +24,24 @@ export interface ProviderChannel {
 }
 
 /**
+ * Fallback policy configuration
+ */
+export interface FallbackPolicy {
+  readonly enabled: boolean;
+  readonly fallbackOrder: readonly ProviderChannelKey[];
+  readonly maxRetries: number;
+  readonly retryDelay: number;
+}
+
+/**
  * AISDK Hub Options
  */
 export interface AISDKHubOptions {
   defaultMaxTokens?: number;
   defaultTemperature?: number;
   timeout?: number;
+  fallbackPolicy?: FallbackPolicy;
+  auditLogger?: AuditLogger;
 }
 
 /**
@@ -36,7 +50,9 @@ export interface AISDKHubOptions {
 export interface AISDKHub {
   registerProvider(channel: ProviderChannel): void;
   execute(request: ProviderRequest): Promise<ProviderResult<ProviderResponse>>;
+  executeWithFallback(request: ProviderRequest): Promise<ProviderResult<ProviderResponse>>;
   stream(request: ProviderRequest): Promise<ProviderResult<ProviderStream>>;
+  streamWithFallback(request: ProviderRequest): Promise<ProviderResult<ProviderStream>>;
   getStatistics(key?: ProviderChannelKey): ProviderStatistics[];
   isConfigured(key: ProviderChannelKey): boolean;
 }
@@ -44,9 +60,7 @@ export interface AISDKHub {
 /**
  * Provider registry
  */
-interface ProviderRegistry {
-  [key: string]: ProviderChannel;
-}
+type ProviderRegistry = Record<string, ProviderChannel>;
 
 /**
  * Request statistics
@@ -62,9 +76,7 @@ interface RequestStats {
 /**
  * Statistics storage
  */
-interface StatisticsStore {
-  [key: string]: RequestStats;
-}
+type StatisticsStore = Record<string, RequestStats>;
 
 /**
  * Creates an AISDK Hub instance
@@ -76,16 +88,29 @@ export function createAISDKHub(options: AISDKHubOptions = {}): AISDKHub {
   const defaultMaxTokens = options.defaultMaxTokens ?? 2000;
   const defaultTemperature = options.defaultTemperature ?? 0.7;
   const timeout = options.timeout ?? 60000;
+  const auditLogger = options.auditLogger;
+  const fallbackPolicy: FallbackPolicy = options.fallbackPolicy ?? {
+    enabled: false,
+    fallbackOrder: [],
+    maxRetries: 0,
+    retryDelay: 0,
+  };
 
   return {
     registerProvider: (channel: ProviderChannel) => {
       registerProviderImpl(channel, providers, statistics);
     },
     execute: async (request: ProviderRequest) => {
-      return executeImpl(request, providers, statistics, defaultMaxTokens, defaultTemperature, timeout);
+      return executeImpl(request, providers, statistics, defaultMaxTokens, defaultTemperature, timeout, auditLogger);
+    },
+    executeWithFallback: async (request: ProviderRequest) => {
+      return executeWithFallbackImpl(request, providers, statistics, defaultMaxTokens, defaultTemperature, timeout, fallbackPolicy, auditLogger);
     },
     stream: async (request: ProviderRequest) => {
-      return streamImpl(request, providers, statistics, defaultMaxTokens, defaultTemperature, timeout);
+      return streamImpl(request, providers, statistics, defaultMaxTokens, defaultTemperature, timeout, auditLogger);
+    },
+    streamWithFallback: async (request: ProviderRequest) => {
+      return streamWithFallbackImpl(request, providers, statistics, defaultMaxTokens, defaultTemperature, timeout, fallbackPolicy, auditLogger);
     },
     getStatistics: (key?: ProviderChannelKey) => {
       return getStatisticsImpl(key, providers, statistics);
@@ -128,8 +153,18 @@ async function executeImpl(
   defaultMaxTokens: number,
   defaultTemperature: number,
   timeout: number,
+  auditLogger?: AuditLogger,
 ): Promise<ProviderResult<ProviderResponse>> {
   const startTime = Date.now();
+
+  // Log request if audit logger is available
+  if (auditLogger) {
+    await auditLogger.record('provider_request', {
+      provider: request.key,
+      mode: request.payload.mode,
+      hasTemplateContext: !!request.templateContext,
+    });
+  }
 
   // Get provider
   const provider = providers[request.key];
@@ -182,16 +217,33 @@ async function executeImpl(
     const duration = Date.now() - startTime;
     stats.successCount++;
     stats.totalDurationMs += duration;
-    if (result.usage) {
-      stats.totalTokens += result.usage.totalTokens ?? 0;
+    if (result.usage?.totalTokens) {
+      stats.totalTokens += result.usage.totalTokens;
     }
 
     // Build response
+    // AI SDK usage may have different property names depending on version
+    const usage = result.usage;
     const response: ProviderResponse = {
       content: result.text,
-      usage: undefined, // TODO: Extract usage from result when API stabilizes
+      usage: usage ? {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        promptTokens: (usage as any).promptTokens ?? 0,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        completionTokens: (usage as any).completionTokens ?? 0,
+        totalTokens: usage.totalTokens ?? 0,
+      } : undefined,
       finishReason: result.finishReason,
     };
+
+    // Log success if audit logger is available
+    if (auditLogger) {
+      await auditLogger.record('provider_response_success', {
+        provider: request.key,
+        durationMs: duration,
+        tokensUsed: result.usage?.totalTokens ?? 0,
+      });
+    }
 
     return { kind: 'ok', value: response };
   } catch (error) {
@@ -212,6 +264,16 @@ async function executeImpl(
       code = 'network_error';
     }
 
+    // Log error if audit logger is available
+    if (auditLogger) {
+      await auditLogger.record('provider_response_error', {
+        provider: request.key,
+        code,
+        message: errorMessage,
+        durationMs: duration,
+      });
+    }
+
     return {
       kind: 'err',
       error: createProviderFault(code, errorMessage, true, request.key, { originalError: errorMessage }),
@@ -229,6 +291,8 @@ async function streamImpl(
   defaultMaxTokens: number,
   defaultTemperature: number,
   timeout: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _auditLogger?: AuditLogger,
 ): Promise<ProviderResult<ProviderStream>> {
   const startTime = Date.now();
 
@@ -416,5 +480,181 @@ function createProviderFault(
     recoverable,
     provider,
     details,
+  };
+}
+
+/**
+ * Implementation of executeWithFallback
+ */
+async function executeWithFallbackImpl(
+  request: ProviderRequest,
+  providers: ProviderRegistry,
+  statistics: StatisticsStore,
+  defaultMaxTokens: number,
+  defaultTemperature: number,
+  timeout: number,
+  fallbackPolicy: FallbackPolicy,
+  auditLogger?: AuditLogger,
+): Promise<ProviderResult<ProviderResponse>> {
+  if (!fallbackPolicy.enabled || fallbackPolicy.fallbackOrder.length === 0) {
+    // No fallback configured, use direct execution
+    return executeImpl(request, providers, statistics, defaultMaxTokens, defaultTemperature, timeout, auditLogger);
+  }
+
+  const errors: { provider: ProviderChannelKey; error: ProviderFault }[] = [];
+  const tryProviders = [request.key, ...fallbackPolicy.fallbackOrder.filter(k => k !== request.key)];
+
+  // eslint-disable-next-line @typescript-eslint/prefer-for-of
+  for (let i = 0; i < tryProviders.length; i++) {
+    const providerKey = tryProviders[i];
+    const modifiedRequest = { ...request, key: providerKey };
+
+    // Try with retries (index needed for retry logic)
+    for (let retry = 0; retry <= fallbackPolicy.maxRetries; retry++) {
+      const result = await executeImpl(
+        modifiedRequest,
+        providers,
+        statistics,
+        defaultMaxTokens,
+        defaultTemperature,
+        timeout,
+        auditLogger,
+      );
+
+      if (result.kind === 'ok') {
+        // Log fallback success if we used a fallback provider
+        if (auditLogger && providerKey !== request.key) {
+          await auditLogger.record('provider_fallback_success', {
+            provider: providerKey,
+            originalProvider: request.key,
+            attempts: errors.length + 1,
+          });
+        }
+        return result;
+      }
+
+      // Save error
+      errors.push({ provider: providerKey, error: result.error });
+
+      // If not recoverable, don't retry
+      if (!result.error.recoverable) {
+        break;
+      }
+
+      // Wait before retry (except on last retry)
+      if (retry < fallbackPolicy.maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, fallbackPolicy.retryDelay));
+      }
+    }
+  }
+
+  // All providers failed
+  const lastError = errors[errors.length - 1];
+  if (auditLogger) {
+    await auditLogger.record('provider_fallback_exhausted', {
+      provider: request.key,
+      attempts: errors.length,
+      providers: errors.map(e => e.provider),
+    });
+  }
+
+  return {
+    kind: 'err',
+    error: {
+      ...lastError.error,
+      details: {
+        ...lastError.error.details,
+        allErrors: errors,
+      },
+    },
+  };
+}
+
+/**
+ * Implementation of streamWithFallback
+ */
+async function streamWithFallbackImpl(
+  request: ProviderRequest,
+  providers: ProviderRegistry,
+  statistics: StatisticsStore,
+  defaultMaxTokens: number,
+  defaultTemperature: number,
+  timeout: number,
+  fallbackPolicy: FallbackPolicy,
+  auditLogger?: AuditLogger,
+): Promise<ProviderResult<ProviderStream>> {
+  if (!fallbackPolicy.enabled || fallbackPolicy.fallbackOrder.length === 0) {
+    // No fallback configured, use direct execution
+    return streamImpl(request, providers, statistics, defaultMaxTokens, defaultTemperature, timeout, auditLogger);
+  }
+
+  const errors: { provider: ProviderChannelKey; error: ProviderFault }[] = [];
+  const tryProviders = [request.key, ...fallbackPolicy.fallbackOrder.filter(k => k !== request.key)];
+
+  // eslint-disable-next-line @typescript-eslint/prefer-for-of
+  for (let i = 0; i < tryProviders.length; i++) {
+    const providerKey = tryProviders[i];
+    const modifiedRequest = { ...request, key: providerKey };
+
+    // Try with retries (index needed for retry logic)
+    for (let retry = 0; retry <= fallbackPolicy.maxRetries; retry++) {
+      const result = await streamImpl(
+        modifiedRequest,
+        providers,
+        statistics,
+        defaultMaxTokens,
+        defaultTemperature,
+        timeout,
+        auditLogger,
+      );
+
+      if (result.kind === 'ok') {
+        // Log fallback success if we used a fallback provider
+        if (auditLogger && providerKey !== request.key) {
+          await auditLogger.record('provider_fallback_success', {
+            provider: providerKey,
+            originalProvider: request.key,
+            attempts: errors.length + 1,
+            streaming: true,
+          });
+        }
+        return result;
+      }
+
+      // Save error
+      errors.push({ provider: providerKey, error: result.error });
+
+      // If not recoverable, don't retry
+      if (!result.error.recoverable) {
+        break;
+      }
+
+      // Wait before retry (except on last retry)
+      if (retry < fallbackPolicy.maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, fallbackPolicy.retryDelay));
+      }
+    }
+  }
+
+  // All providers failed
+  const lastError = errors[errors.length - 1];
+  if (auditLogger) {
+    await auditLogger.record('provider_fallback_exhausted', {
+      provider: request.key,
+      attempts: errors.length,
+      providers: errors.map(e => e.provider),
+      streaming: true,
+    });
+  }
+
+  return {
+    kind: 'err',
+    error: {
+      ...lastError.error,
+      details: {
+        ...lastError.error.details,
+        allErrors: errors,
+      },
+    },
   };
 }

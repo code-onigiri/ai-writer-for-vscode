@@ -8,8 +8,12 @@
   },
   "scripts": {
     "build": "pnpm -r --filter './packages/*' run build",
+    "build:base": "pnpm --filter @ai-writer/base build",
+    "build:vscode": "pnpm --filter @ai-writer/base build && pnpm --filter @ai-writer/vscode-ext build",
+    "build:watch": "pnpm --filter @ai-writer/vscode-ext build --watch",
     "typecheck": "pnpm -r --filter './packages/*' run typecheck",
     "lint": "pnpm -r --filter './packages/*' run lint",
+    "lint:fix": "pnpm -r --filter './packages/*' run lint --fix",
     "test": "vitest run",
     "test:packages": "pnpm -r --filter './packages/*' run test",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:packages"

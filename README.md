@@ -35,13 +35,22 @@ pnpm install
 
 3. Build the project:
 ```bash
+# Build all packages
 pnpm run build
+
+# Or build just the VS Code extension and its dependencies
+pnpm run build:vscode
 ```
 
 4. Run tests:
 ```bash
 pnpm run test
 ```
+
+5. Debug the VS Code extension:
+   - Open the project in VS Code
+   - Press F5 to launch the Extension Development Host
+   - See [Debugging Guide](docs/debugging-vscode-extension.md) for details
 
 ## Configuration
 

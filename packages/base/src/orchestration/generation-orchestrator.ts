@@ -1,4 +1,9 @@
 import { createIterationEngine, type IterationEngine, type IterationStep } from './iteration-engine.js';
+
+import type { AISDKHub } from '../provider/aisdk-hub.js';
+import type { StorageGateway } from '../storage/storage-gateway.js';
+import type { TemplateRegistry } from '../template/template-registry.js';
+import type { PersonaManager } from '../persona/persona-manager.js';
 import type {
   DraftInput,
   DraftSessionSummary,
@@ -16,7 +21,10 @@ import type {
  * Dependencies for Generation Orchestrator
  */
 export interface GenerationOrchestratorDependencies {
-  // Will be added as we implement other components
+  aisdkHub?: AISDKHub;
+  storageGateway?: StorageGateway;
+  templateRegistry?: TemplateRegistry;
+  personaManager?: PersonaManager;
 }
 
 /**
@@ -44,9 +52,7 @@ export interface GenerationOrchestrator {
 /**
  * Session storage for in-memory session management
  */
-interface SessionStore {
-  [sessionId: string]: SessionSnapshot;
-}
+type SessionStore = Record<string, SessionSnapshot>;
 
 /**
  * Creates a Generation Orchestrator instance
@@ -56,22 +62,23 @@ export function createGenerationOrchestrator(
 ): GenerationOrchestrator {
   const iterationEngine = createIterationEngine();
   const sessions: SessionStore = {};
+  const deps = options.dependencies ?? {};
 
   return {
     startOutlineCycle: async (input: OutlineInput) => {
-      return startOutlineCycleImpl(input, iterationEngine, sessions);
+      return startOutlineCycleImpl(input, iterationEngine, sessions, deps);
     },
     startDraftCycle: async (input: DraftInput) => {
-      return startDraftCycleImpl(input, iterationEngine, sessions);
+      return startDraftCycleImpl(input, iterationEngine, sessions, deps);
     },
     applyTemplatePoint: async (sessionId: string, pointId: string, override?: PointOverride) => {
-      return applyTemplatePointImpl(sessionId, pointId, override, sessions);
+      return applyTemplatePointImpl(sessionId, pointId, override, sessions, deps);
     },
     getSession: async (sessionId: string) => {
       return getSessionImpl(sessionId, sessions);
     },
     resumeSession: async (sessionId: string, step: IterationStep) => {
-      return resumeSessionImpl(sessionId, step, iterationEngine, sessions);
+      return resumeSessionImpl(sessionId, step, iterationEngine, sessions, deps);
     },
   };
 }
@@ -83,6 +90,8 @@ async function startOutlineCycleImpl(
   input: OutlineInput,
   engine: IterationEngine,
   sessions: SessionStore,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _deps: Partial<GenerationOrchestratorDependencies>,
 ): Promise<Result<OutlineSessionSummary, OrchestrationFault>> {
   // Validate input
   const validationError = validateOutlineInput(input);
@@ -138,6 +147,8 @@ async function startDraftCycleImpl(
   input: DraftInput,
   engine: IterationEngine,
   sessions: SessionStore,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _deps: Partial<GenerationOrchestratorDependencies>,
 ): Promise<Result<DraftSessionSummary, OrchestrationFault>> {
   // Validate input
   const validationError = validateDraftInput(input);
@@ -197,6 +208,8 @@ async function applyTemplatePointImpl(
   pointId: string,
   override: PointOverride | undefined,
   sessions: SessionStore,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _deps: Partial<GenerationOrchestratorDependencies>,
 ): Promise<Result<PointEvaluation, OrchestrationFault>> {
   const session = sessions[sessionId];
   if (!session) {
@@ -243,6 +256,7 @@ async function resumeSessionImpl(
   step: IterationStep,
   engine: IterationEngine,
   sessions: SessionStore,
+  deps: Partial<GenerationOrchestratorDependencies>,
 ): Promise<Result<SessionSnapshot, OrchestrationFault>> {
   const session = sessions[sessionId];
   if (!session) {
@@ -268,15 +282,55 @@ async function resumeSessionImpl(
     };
   }
 
+  const startTime = Date.now();
+  let output: Record<string, unknown> = {};
+
+  // Execute AI generation if AISDK Hub is available and step requires generation
+  if (deps.aisdkHub && (step.type === 'generate' || step.type === 'critique' || step.type === 'reflection' || step.type === 'question')) {
+    // Build template context
+    const templateContext = await buildTemplateContext(session, deps);
+    
+    // Determine provider mode based on step type
+    const mode = step.type as 'outline' | 'draft' | 'critique' | 'reflection' | 'question';
+    
+    // Execute with fallback if available
+    const providerRequest = {
+      key: 'openai' as const,  // Default to OpenAI, can be made configurable
+      payload: {
+        prompt: typeof step.payload === 'string' ? step.payload : JSON.stringify(step.payload),
+        mode,
+      },
+      templateContext,
+    };
+
+    const result = deps.aisdkHub.executeWithFallback
+      ? await deps.aisdkHub.executeWithFallback(providerRequest)
+      : await deps.aisdkHub.execute(providerRequest);
+
+    if (result.kind === 'ok') {
+      output = {
+        content: result.value.content,
+        usage: result.value.usage,
+        finishReason: result.value.finishReason,
+      };
+    } else {
+      // Log error but don't fail the session
+      output = {
+        error: result.error.message,
+        errorCode: result.error.code,
+      };
+    }
+  }
+
   // Create step record
   const stepRecord: StepRecord = {
     stepId: generateStepId(),
     sessionId,
     type: step.type,
     input: step.payload,
-    output: {},
+    output,
     timestamp: new Date().toISOString(),
-    durationMs: 0,
+    durationMs: Date.now() - startTime,
   };
 
   // Update session
@@ -284,12 +338,61 @@ async function resumeSessionImpl(
     ...session,
     currentState: transitionResult.state,
     steps: [...session.steps, stepRecord],
+    outputs: {
+      ...session.outputs,
+      [step.type]: output,
+    },
     updatedAt: new Date().toISOString(),
   };
 
   sessions[sessionId] = updatedSession;
 
+  // Save session to storage if available
+  if (deps.storageGateway) {
+    await deps.storageGateway.saveSession(updatedSession);
+  }
+
   return { kind: 'ok', value: updatedSession };
+}
+
+/**
+ * Build template context for AI generation
+ */
+async function buildTemplateContext(
+  session: SessionSnapshot,
+  deps: Partial<GenerationOrchestratorDependencies>,
+): Promise<Record<string, unknown>> {
+  const context: Record<string, unknown> = {};
+
+  // Add persona context if available
+  if (session.personaId && deps.personaManager) {
+    const personaResult = await deps.personaManager.getPersona(session.personaId);
+    if (personaResult.kind === 'ok') {
+      context.persona = {
+        id: personaResult.value.id,
+        tone: personaResult.value.tone,
+        audience: personaResult.value.audience,
+      };
+    }
+  }
+
+  // Add template context if available
+  if (session.templateId && deps.templateRegistry) {
+    const templateResult = await deps.templateRegistry.loadTemplate(session.templateId);
+    if (templateResult.kind === 'ok') {
+      context.template = {
+        id: templateResult.value.id,
+        name: templateResult.value.name,
+        points: templateResult.value.points?.map(p => ({
+          pointId: p.id,
+          instructions: p.instructions,
+          priority: p.priority,
+        })) ?? [],
+      };
+    }
+  }
+
+  return context;
 }
 
 /**

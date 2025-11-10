@@ -10,8 +10,7 @@
     "vscode": "^1.95.0"
   },
   "activationEvents": [
-    "onCommand:ai-writer.startOutline",
-    "onCommand:ai-writer.startDraft"
+    "onStartupFinished"
   ],
   "contributes": {
     "commands": [
@@ -23,6 +22,51 @@
       {
         "command": "ai-writer.startDraft",
         "title": "AI Writer: Start Draft Generation",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.listTemplates",
+        "title": "AI Writer: List Templates",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.createTemplate",
+        "title": "AI Writer: Create Template",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.viewComplianceReport",
+        "title": "AI Writer: View Compliance Report",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.listPersonas",
+        "title": "AI Writer: List Personas",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.createPersona",
+        "title": "AI Writer: Create Persona",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.validateCompatibility",
+        "title": "AI Writer: Validate Persona-Template Compatibility",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.viewStorageStats",
+        "title": "AI Writer: View Storage Statistics",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.viewAuditStats",
+        "title": "AI Writer: View Audit Statistics",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.cleanupStorage",
+        "title": "AI Writer: Cleanup Old Sessions",
         "category": "AI Writer"
       }
     ]

@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Developer Experience
+- VS Code extension debugging documentation (`docs/debugging-vscode-extension.md`)
+- VS Code extension package README with implementation status
+- Convenience build scripts:
+  - `pnpm run build:vscode` - Build VS Code extension and dependencies
+  - `pnpm run build:base` - Build base package only
+  - `pnpm run build:watch` - Watch mode for VS Code extension
+  - `pnpm run lint:fix` - Auto-fix linting issues
+
+### Fixed
+- **Lint errors** (14 → 0): Fixed all ESLint violations across the codebase
+  - Import ordering issues (missing blank lines between import groups)
+  - TypeScript index signatures converted to Record types
+  - Empty interface type warnings resolved
+  - Unused parameter warnings addressed
+- **Build workflow**: Documented dependency between base and vscode-ext packages
+- **Documentation**: Comprehensive debugging guide for VS Code extension development
+
 #### Core Infrastructure (Tasks 1-1.2)
 - pnpm workspace setup with Base, VS Code Extension, and LMT API packages
 - Consistent build, test, and lint scripts across all packages
