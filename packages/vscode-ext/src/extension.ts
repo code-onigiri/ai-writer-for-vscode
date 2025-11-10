@@ -137,6 +137,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
   context.subscriptions.push(settingsPanel);
 
+  // Set dependencies for sidebar provider
+  sidebarProvider.setDependencies({
+    sessionManager,
+    templateRegistry,
+    personaManager,
+  });
+
   // Register the new sidebar webview
   const sidebarView = vscode.window.registerWebviewViewProvider(
     SidebarWebviewProvider.viewType,
@@ -168,44 +175,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   commandController = new CommandController(context, outputChannel, orchestrator, services);
-
-  // Update sidebar with initial data
-  if (templateRegistry) {
-    try {
-      const result = await templateRegistry.listTemplates();
-      if (result.kind === 'ok') {
-        sidebarProvider.updateTemplates(result.value.map(t => ({
-          id: t.id,
-          name: t.name,
-          description: undefined,
-          points: t.points?.map(p => ({
-            id: p.id,
-            title: p.title,
-            instructions: p.instructions,
-          })) || [],
-        })));
-      }
-    } catch (err) {
-      outputChannel.appendLine(`Failed to load templates for sidebar: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-
-  if (personaManager) {
-    try {
-      const result = await personaManager.listPersonas();
-      if (result.kind === 'ok') {
-        sidebarProvider.updatePersonas(result.value.map(p => ({
-          id: p.id,
-          name: p.name,
-          tone: p.tone,
-          audience: p.audience,
-          parameters: {},
-        })));
-      }
-    } catch (err) {
-      outputChannel.appendLine(`Failed to load personas for sidebar: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
 
   // Register generation commands
   commandController.registerCommand({

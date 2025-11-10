@@ -81,14 +81,33 @@ export class SidebarWebviewProvider implements vscode.WebviewViewProvider {
   private prompts: PromptConfig[] = [];
   private taskOverview: TaskOverview = { status: 'idle', progress: 0 };
 
+  // Optional dependencies for data loading - using any to avoid complex type constraints
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private sessionManager?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private templateRegistry?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private personaManager?: any;
+
   constructor(
     private readonly extensionUri: vscode.Uri,
   ) {}
 
+  public setDependencies(deps: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sessionManager?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    templateRegistry?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    personaManager?: any;
+  }): void {
+    this.sessionManager = deps.sessionManager;
+    this.templateRegistry = deps.templateRegistry;
+    this.personaManager = deps.personaManager;
+  }
+
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
-    _context: vscode.WebviewViewResolveContext,
-    _token: vscode.CancellationToken,
   ): void | Thenable<void> {
     this.view = webviewView;
 
@@ -308,7 +327,18 @@ export class SidebarWebviewProvider implements vscode.WebviewViewProvider {
 
   // Placeholder methods - to be implemented with actual business logic
   private async loadOutlines(): Promise<void> {
-    // TODO: Load from storage
+    if (this.sessionManager) {
+      const sessions = this.sessionManager.getAllSessions();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const outlineSessions = sessions.filter((s: any) => s.mode === 'outline');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.outlines = outlineSessions.map((s: any) => ({
+        id: s.id,
+        title: s.idea || 'Untitled Outline',
+        content: s.previewContent || '',
+        updatedAt: s.updatedAt,
+      }));
+    }
     this.updateOutlines(this.outlines);
   }
 
@@ -338,7 +368,19 @@ export class SidebarWebviewProvider implements vscode.WebviewViewProvider {
   }
 
   private async loadDrafts(): Promise<void> {
-    // TODO: Load from storage
+    if (this.sessionManager) {
+      const sessions = this.sessionManager.getAllSessions();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const draftSessions = sessions.filter((s: any) => s.mode === 'draft');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.drafts = draftSessions.map((s: any) => ({
+        id: s.id,
+        title: s.idea || 'Untitled Draft',
+        content: s.previewContent || '',
+        updatedAt: s.updatedAt,
+        fileStructure: undefined, // TODO: Extract from session metadata
+      }));
+    }
     this.updateDrafts(this.drafts);
   }
 
@@ -353,7 +395,27 @@ export class SidebarWebviewProvider implements vscode.WebviewViewProvider {
   }
 
   private async loadTemplates(): Promise<void> {
-    // TODO: Load from registry
+    if (this.templateRegistry) {
+      try {
+        const result = await this.templateRegistry.listTemplates();
+        if (result.kind === 'ok' && result.value) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          this.templates = result.value.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            description: undefined,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            points: t.points?.map((p: any) => ({
+              id: p.id,
+              title: p.title,
+              instructions: p.instructions,
+            })) || [],
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load templates:', err);
+      }
+    }
     this.updateTemplates(this.templates);
   }
 
@@ -383,7 +445,23 @@ export class SidebarWebviewProvider implements vscode.WebviewViewProvider {
   }
 
   private async loadPersonas(): Promise<void> {
-    // TODO: Load from manager
+    if (this.personaManager) {
+      try {
+        const result = await this.personaManager.listPersonas();
+        if (result.kind === 'ok' && result.value) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          this.personas = result.value.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            tone: p.tone,
+            audience: p.audience,
+            parameters: {},
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load personas:', err);
+      }
+    }
     this.updatePersonas(this.personas);
   }
 
