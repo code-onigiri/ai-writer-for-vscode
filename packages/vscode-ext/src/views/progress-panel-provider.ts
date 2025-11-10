@@ -9,6 +9,7 @@ export interface ProgressStep {
   content?: string;
   timestamp: string;
   error?: string;
+  streamedContent?: string; // リアルタイムストリーミング用の部分コンテンツ
 }
 
 export interface ProgressState {
@@ -17,11 +18,13 @@ export interface ProgressState {
   currentStep: ProgressStepType | 'completed';
   steps: ProgressStep[];
   isStreaming: boolean;
+  streamingStepIndex?: number; // 現在ストリーミング中のステップのインデックス
 }
 
 export class ProgressPanelProvider {
   private panel: vscode.WebviewPanel | undefined;
   private currentState: ProgressState | undefined;
+  private streamBuffer = new Map<number, string>(); // ステップごとのストリームバッファ
 
   public show(state: ProgressState): void {
     if (!this.panel) {
@@ -64,15 +67,97 @@ export class ProgressPanelProvider {
   }
 
   public appendStreamContent(stepType: ProgressStepType, chunk: string): void {
-    if (!this.panel) {
+    if (!this.panel || !this.currentState) {
       return;
     }
 
-    this.panel.webview.postMessage({
-      type: 'streamChunk',
-      stepType,
-      chunk,
-    });
+    // ストリーミング中のステップを探す
+    const stepIndex = this.currentState.steps.findIndex(
+      s => s.type === stepType && s.status === 'running'
+    );
+
+    if (stepIndex >= 0) {
+      // バッファに追加
+      const currentBuffer = this.streamBuffer.get(stepIndex) || '';
+      this.streamBuffer.set(stepIndex, currentBuffer + chunk);
+
+      // Webviewに送信
+      this.panel.webview.postMessage({
+        type: 'streamChunk',
+        stepIndex,
+        stepType,
+        chunk,
+      });
+    }
+  }
+
+  public startStreaming(stepType: ProgressStepType): void {
+    if (!this.currentState || !this.panel) {
+      return;
+    }
+
+    const stepIndex = this.currentState.steps.findIndex(s => s.type === stepType);
+    if (stepIndex >= 0) {
+      this.streamBuffer.set(stepIndex, '');
+      this.currentState.isStreaming = true;
+      this.currentState.streamingStepIndex = stepIndex;
+      
+      this.panel.webview.postMessage({
+        type: 'startStreaming',
+        stepIndex,
+        stepType,
+      });
+    }
+  }
+
+  public stopStreaming(stepType: ProgressStepType, finalContent?: string): void {
+    if (!this.currentState || !this.panel) {
+      return;
+    }
+
+    const stepIndex = this.currentState.steps.findIndex(s => s.type === stepType);
+    if (stepIndex >= 0) {
+      // 最終コンテンツを設定
+      const content = finalContent || this.streamBuffer.get(stepIndex) || '';
+      this.currentState.steps[stepIndex].content = content;
+      this.currentState.steps[stepIndex].status = 'completed';
+      this.currentState.isStreaming = false;
+      this.currentState.streamingStepIndex = undefined;
+      
+      // バッファをクリア
+      this.streamBuffer.delete(stepIndex);
+
+      this.panel.webview.postMessage({
+        type: 'stopStreaming',
+        stepIndex,
+        stepType,
+        finalContent: content,
+      });
+    }
+  }
+
+  public cancelStreaming(stepType: ProgressStepType, errorMessage?: string): void {
+    if (!this.currentState || !this.panel) {
+      return;
+    }
+
+    const stepIndex = this.currentState.steps.findIndex(s => s.type === stepType);
+    if (stepIndex >= 0) {
+      this.currentState.steps[stepIndex].status = 'error';
+      this.currentState.steps[stepIndex].error = errorMessage || 'ストリーミングがキャンセルされました';
+      this.currentState.isStreaming = false;
+      this.currentState.streamingStepIndex = undefined;
+      
+      // バッファをクリア
+      this.streamBuffer.delete(stepIndex);
+
+      this.panel.webview.postMessage({
+        type: 'cancelStreaming',
+        stepIndex,
+        stepType,
+        error: errorMessage,
+      });
+    }
   }
 
   private handleMessage(message: { type: string; payload?: unknown }): void {
@@ -303,6 +388,20 @@ export class ProgressPanelProvider {
         border-color: var(--vscode-inputValidation-errorBorder);
       }
 
+      .step.streaming {
+        border-color: var(--vscode-progressBar-background);
+        animation: pulse-border 1.5s ease-in-out infinite;
+      }
+
+      @keyframes pulse-border {
+        0%, 100% {
+          border-color: var(--vscode-progressBar-background);
+        }
+        50% {
+          border-color: var(--vscode-focusBorder);
+        }
+      }
+
       .step-header {
         display: flex;
         align-items: flex-start;
@@ -431,7 +530,16 @@ export class ProgressPanelProvider {
             updateUI(currentState);
             break;
           case 'streamChunk':
-            appendStreamChunk(message.stepType, message.chunk);
+            appendStreamChunk(message.stepIndex, message.chunk);
+            break;
+          case 'startStreaming':
+            startStreamingUI(message.stepIndex);
+            break;
+          case 'stopStreaming':
+            stopStreamingUI(message.stepIndex, message.finalContent);
+            break;
+          case 'cancelStreaming':
+            cancelStreamingUI(message.stepIndex, message.error);
             break;
         }
       });
@@ -449,10 +557,8 @@ export class ProgressPanelProvider {
       }
 
       function renderTimeline(state) {
-        // This would be the same logic as the server-side rendering
-        // For simplicity, we'll just reload the entire timeline
         return state.steps.map((step, index) => {
-          return \`<div class="step \${step.status}">
+          return \`<div class="step \${step.status}" id="step-\${index}">
             <div class="step-header">
               <div class="step-icon">\${getStepIcon(step.type, step.status)}</div>
               <div class="step-title">
@@ -460,21 +566,93 @@ export class ProgressPanelProvider {
                 <span class="step-time">\${new Date(step.timestamp).toLocaleTimeString()}</span>
               </div>
             </div>
-            \${step.content ? \`<div class="step-content" id="step-content-\${index}">\${escapeHtml(step.content)}</div>\` : ''}
+            \${step.content || step.status === 'running' ? \`<div class="step-content" id="step-content-\${index}">\${escapeHtml(step.content || '')}</div>\` : ''}
             \${step.error ? \`<div class="step-error"><strong>Error:</strong> \${escapeHtml(step.error)}</div>\` : ''}
           </div>\`;
         }).join('');
       }
 
-      function appendStreamChunk(stepType, chunk) {
-        const steps = currentState.steps;
-        const stepIndex = steps.findIndex(s => s.type === stepType && s.status === 'running');
+      function appendStreamChunk(stepIndex, chunk) {
+        let contentElement = document.getElementById(\`step-content-\${stepIndex}\`);
         
-        if (stepIndex >= 0) {
-          const contentElement = document.getElementById(\`step-content-\${stepIndex}\`);
-          if (contentElement) {
-            contentElement.textContent += chunk;
-            contentElement.scrollTop = contentElement.scrollHeight;
+        // コンテンツ要素がまだなければ作成
+        if (!contentElement) {
+          const stepElement = document.getElementById(\`step-\${stepIndex}\`);
+          if (stepElement) {
+            const headerElement = stepElement.querySelector('.step-header');
+            if (headerElement) {
+              contentElement = document.createElement('div');
+              contentElement.className = 'step-content';
+              contentElement.id = \`step-content-\${stepIndex}\`;
+              headerElement.insertAdjacentElement('afterend', contentElement);
+            }
+          }
+        }
+
+        if (contentElement) {
+          contentElement.textContent += chunk;
+          // 自動スクロール
+          contentElement.scrollTop = contentElement.scrollHeight;
+          
+          // ステップ全体も表示領域にスクロール
+          const stepElement = document.getElementById(\`step-\${stepIndex}\`);
+          if (stepElement) {
+            stepElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      }
+
+      function startStreamingUI(stepIndex) {
+        const streamingIndicator = document.getElementById('streaming-indicator');
+        if (streamingIndicator) {
+          streamingIndicator.style.display = 'block';
+        }
+        
+        // ステップをハイライト
+        const stepElement = document.getElementById(\`step-\${stepIndex}\`);
+        if (stepElement) {
+          stepElement.classList.add('active', 'streaming');
+        }
+      }
+
+      function stopStreamingUI(stepIndex, finalContent) {
+        const streamingIndicator = document.getElementById('streaming-indicator');
+        if (streamingIndicator) {
+          streamingIndicator.style.display = 'none';
+        }
+        
+        // ステップの状態を更新
+        const stepElement = document.getElementById(\`step-\${stepIndex}\`);
+        if (stepElement) {
+          stepElement.classList.remove('streaming');
+          stepElement.classList.add('completed');
+        }
+        
+        // 最終コンテンツを設定
+        const contentElement = document.getElementById(\`step-content-\${stepIndex}\`);
+        if (contentElement && finalContent !== undefined) {
+          contentElement.textContent = finalContent;
+        }
+      }
+
+      function cancelStreamingUI(stepIndex, error) {
+        const streamingIndicator = document.getElementById('streaming-indicator');
+        if (streamingIndicator) {
+          streamingIndicator.style.display = 'none';
+        }
+        
+        // エラー状態を表示
+        const stepElement = document.getElementById(\`step-\${stepIndex}\`);
+        if (stepElement) {
+          stepElement.classList.remove('streaming');
+          stepElement.classList.add('error');
+          
+          // エラーメッセージを追加
+          if (error) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'step-error';
+            errorDiv.innerHTML = \`<strong>Error:</strong> \${escapeHtml(error)}\`;
+            stepElement.appendChild(errorDiv);
           }
         }
       }

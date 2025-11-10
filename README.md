@@ -6,12 +6,14 @@ AIを使用して文章/本を書かせるVScode拡張機能です。
 
 ## Features
 
+- 🎨 **GUI-Based Interface**: Intuitive dashboard and settings panels for all operations
+- 📡 **Real-time Streaming**: Watch AI-generated content appear in real-time
 - 🔄 **Iterative Writing Workflow**: Generate → Critique → Reflect → Question → Regenerate cycle
 - 📝 **Template System**: Define and reuse writing templates with compliance tracking
 - 🎭 **Persona Management**: Customize tone, audience, and style preferences
 - 🤖 **Multi-Provider Support**: OpenAI (GPT-4), Google Gemini, and more
 - 💾 **Session Persistence**: Save and resume writing sessions
-- 📊 **Progress Tracking**: Monitor generation cycles and template adherence
+- 📊 **Progress Tracking**: Monitor generation cycles and template adherence with visual feedback
 
 ## Installation
 
@@ -73,12 +75,63 @@ By default, AI Writer stores data in the `.ai-writer` directory:
 
 ## Usage
 
-### Commands
+### GUI Dashboard
 
+AI Writer now provides a comprehensive GUI interface for all operations:
+
+1. **Open Dashboard**:
+   - Click the home icon (🏠) in the AI Writer sidebar
+   - Or run `AI Writer: Show Dashboard` from Command Palette
+
+2. **Dashboard Features**:
+   - **アウトライン生成**: Start outline generation with a single click
+   - **ドラフト生成**: Generate drafts from your outlines
+   - **設定**: Configure AI providers, templates, and personas
+   - **Recent Sessions**: View and resume your recent writing sessions
+   - **Templates**: Manage your writing templates
+
+3. **Settings Panel**:
+   - Access via Dashboard or run `AI Writer: Open Settings Panel`
+   - Configure AI Providers (OpenAI, Gemini) with API keys and parameters
+   - Manage Templates with points and instructions
+   - Manage Personas with tone, audience, and custom parameters
+
+### Commands (Still Available)
+
+- **AI Writer: Show Dashboard** - Open the main dashboard
+- **AI Writer: Open Settings Panel** - Open settings configuration
 - **AI Writer: Start Outline Generation** - Begin creating an outline for your article
 - **AI Writer: Start Draft Generation** - Generate a draft from an existing outline
 
 ### Basic Workflow
+
+#### GUI-Based Workflow (Recommended)
+
+1. **Open the Dashboard**:
+   - Click the home icon in the AI Writer sidebar
+   - View your recent sessions and templates
+
+2. **Configure Settings** (First Time):
+   - Click the "設定" (Settings) card
+   - Add your API keys in the "AI Providers" tab
+   - Optionally create templates and personas
+
+3. **Start an Outline**:
+   - Click the "アウトライン生成" card
+   - Enter your article topic or idea
+   - Watch the real-time streaming progress
+
+4. **Monitor Progress**:
+   - See each step (Generate, Critique, Reflection, etc.) in real-time
+   - Watch AI-generated content stream in as it's being created
+   - Review completed steps with timestamps
+
+5. **Generate Draft**:
+   - Click the "ドラフト生成" card
+   - Select your completed outline
+   - Watch the draft generation with real-time updates
+
+#### Command-Based Workflow (Traditional)
 
 1. **Start an Outline**:
    - Open Command Palette (Cmd/Ctrl+Shift+P)
@@ -236,16 +289,23 @@ The project includes 95 comprehensive unit tests covering:
 - [x] Storage gateway with JSON persistence
 - [x] Command controller with basic commands
 
+### Recently Added ✨
+
+- [x] Main Dashboard with GUI interface
+- [x] Settings Panel for AI providers, templates, and personas
+- [x] Real-time streaming progress display
+- [x] Interactive webview-based controls
+- [x] Visual session and template management
+
 ### Planned 🚧
 
-- [ ] Webview UI for progress tracking
-- [ ] Interactive cycle controls
-- [ ] Template and persona editors
 - [ ] Git integration for version control
 - [ ] Gemini CLI provider
 - [ ] Language Model Tool API bridge
 - [ ] Audit log visualization
 - [ ] Statistics dashboard
+- [ ] Drag-and-drop template builder
+- [ ] Advanced persona parameter management
 
 ## License
 

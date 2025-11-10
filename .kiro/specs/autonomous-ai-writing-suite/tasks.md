@@ -148,6 +148,49 @@
 - [x] 7.1 Baseレイヤーの単体テストを整備する
   - Iteration Engine、Generation Orchestrator、Template Registry、Persona Managerのユニットテストを作成する。
   - 異常系（無効遷移、テンプレート不整合、資格情報欠落）を網羅する。
+
+- [ ] 8. GUIベースインターフェースとストリーミング対応を実装する
+  - コマンド中心からWebviewベースのGUIへ移行し、コマンドも並行して維持する。
+  - リアルタイムストリーミングで処理の途中経過を可視化する。
+  - _Requirements: R7, R8_
+
+- [ ] 8.1 メインダッシュボードWebviewを実装する
+  - アウトライン生成、ドラフト生成、設定管理へのアクセスポイントを提供する。
+  - セッション一覧、テンプレート一覧を表示し、選択したアイテムの詳細を表示する。
+  - Webviewから既存のコマンドを呼び出せるようにする。
+  - _Requirements: R7_
+
+- [ ] 8.2 設定管理用Webviewパネルを実装する
+  - AI Provider設定（API Key、モデル選択、パラメータ）をタブ形式のGUIで提供する。
+  - テンプレート管理（作成、編集、削除、プレビュー）のGUIを実装する。
+  - ペルソナ管理（作成、編集、削除、ON/OFFトグル）のGUIを実装する。
+  - 設定の保存と検証をWebview内で完結させる。
+  - _Requirements: R7_
+
+- [ ] 8.3 リアルタイムストリーミング進捗表示を実装する
+  - 既存のProgressPanelProviderを拡張し、ストリーミング対応を追加する。
+  - AI生成中のテキストをチャンク単位でWebviewへ送信し、リアルタイムで追記表示する。
+  - 各ステップ（生成、批判、考察、質問、再生成）の状態を視覚的に表示する。
+  - ストリーミング中断機能と部分結果の保存/破棄オプションを提供する。
+  - _Requirements: R7, R8_
+
+- [ ] 8.4 AISDK Hubにストリーミング対応を追加する
+  - `streamText` APIを使用したストリーミング生成機能をHubに実装する。
+  - ストリーミングチャンクをWebviewへリアルタイムで転送する仕組みを構築する。
+  - エラー発生時のストリーミング中断とリカバリー処理を実装する。
+  - _Requirements: R8_
+
+- [ ] 8.5 Generation Orchestratorにストリーミング対応を追加する
+  - `startOutlineCycle` と `startDraftCycle` にストリーミングモードを追加する。
+  - ストリーミング中の進捗情報をProgressPanelProviderへ通知する。
+  - 途中経過の保存とセッション状態の更新を実装する。
+  - _Requirements: R8_
+
+- [ ] 8.6 既存コマンドとWebviewの統合を完成させる
+  - コマンドパレット経由の実行時にも自動的にWebviewを表示する。
+  - Webviewからのコマンド実行とコマンドパレットからの実行を統一的に処理する。
+  - TreeViewからWebviewへの連携を強化し、選択したアイテムの詳細をWebviewで表示する。
+  - _Requirements: R7_
   - _Requirements: R1, R2, R3, R6_
 
 - [x] 7.2 統合・E2Eテストを構築する
