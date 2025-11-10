@@ -6,9 +6,11 @@ import {
   startDraftHandler,
   listTemplatesHandler,
   createTemplateHandler,
+  editTemplateHandler,
   viewComplianceReportHandler,
   listPersonasHandler,
   createPersonaHandler,
+  editPersonaHandler,
   validateCompatibilityHandler,
   viewStorageStatsHandler,
   viewAuditStatsHandler,
@@ -20,7 +22,7 @@ import { TemplateDetailViewProvider } from './views/template-detail-view-provide
 import { TemplateTreeDataProvider } from './views/template-tree-provider.js';
 import { ProgressPanelProvider } from './views/progress-panel-provider.js';
 
-import type { OrchestratorLike, TemplateRegistryLike } from './commands/types.js';
+import type { OrchestratorLike, TemplateRegistryLike, PersonaManagerLike } from './commands/types.js';
 
 let commandController: CommandController | undefined;
 
@@ -40,6 +42,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Initialize orchestrator and registry (dynamically import to avoid compile-time package boundary issues)
   let orchestrator: OrchestratorLike | undefined;
   let templateRegistry: TemplateRegistryLike | undefined;
+  let personaManager: PersonaManagerLike | undefined;
   try {
     // Use a computed import string to reduce static analysis by TypeScript tooling.
     const pkg = '@ai-writer/base';
@@ -47,6 +50,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const maybeBase = base as { 
       createGenerationOrchestrator?: unknown;
       createTemplateRegistry?: unknown;
+      createPersonaManager?: unknown;
     };
     if (maybeBase && typeof maybeBase.createGenerationOrchestrator === 'function') {
       // safe to call because we checked the type at runtime
@@ -59,9 +63,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       // @ts-ignore -- runtime-checked
       templateRegistry = maybeBase.createTemplateRegistry();
     }
+    if (maybeBase && typeof maybeBase.createPersonaManager === 'function') {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore -- runtime-checked
+      personaManager = maybeBase.createPersonaManager();
+    }
   } catch (err) {
     // Non-fatal: log to output channel. Handlers will show an error if orchestrator is missing.
-    outputChannel.appendLine(`Could not initialize orchestrator/registry: ${err instanceof Error ? err.message : String(err)}`);
+    outputChannel.appendLine(`Could not initialize orchestrator/registry/personaManager: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // Create tree data providers
@@ -81,6 +90,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const services = {
     sessionManager,
     templateRegistry,
+    personaManager,
     progressPanel: progressPanelProvider,
     refreshSessions: () => sessionTreeProvider.refresh(),
     refreshTemplates: () => templateTreeProvider.refresh(),
@@ -124,6 +134,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
 
   commandController.registerCommand({
+    id: 'ai-writer.editTemplate',
+    title: 'AI Writer: Edit Template',
+    description: 'Edit an existing writing template',
+    handler: editTemplateHandler,
+  });
+
+  commandController.registerCommand({
     id: 'ai-writer.viewComplianceReport',
     title: 'AI Writer: View Compliance Report',
     description: 'View template compliance report for current session',
@@ -143,6 +160,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     title: 'AI Writer: Create Persona',
     description: 'Create a new writing persona',
     handler: createPersonaHandler,
+  });
+
+  commandController.registerCommand({
+    id: 'ai-writer.editPersona',
+    title: 'AI Writer: Edit Persona',
+    description: 'Edit an existing writing persona',
+    handler: editPersonaHandler,
   });
 
   commandController.registerCommand({

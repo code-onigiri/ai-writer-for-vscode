@@ -64,6 +64,11 @@
         "category": "AI Writer"
       },
       {
+        "command": "ai-writer.editTemplate",
+        "title": "AI Writer: Edit Template",
+        "category": "AI Writer"
+      },
+      {
         "command": "ai-writer.viewComplianceReport",
         "title": "AI Writer: View Compliance Report",
         "category": "AI Writer"
@@ -76,6 +81,11 @@
       {
         "command": "ai-writer.createPersona",
         "title": "AI Writer: Create Persona",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.editPersona",
+        "title": "AI Writer: Edit Persona",
         "category": "AI Writer"
       },
       {
