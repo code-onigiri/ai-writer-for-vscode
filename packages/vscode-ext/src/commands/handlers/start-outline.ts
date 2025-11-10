@@ -62,21 +62,43 @@ export const startOutlineHandler: CommandHandler<StartOutlineInput, string> = as
             type: 'generate',
             status: 'running',
             timestamp: new Date().toISOString(),
-            content: 'Generating initial outline...',
           },
         ],
         isStreaming: true,
       });
 
+      // ストリーミングを開始
+      context.services.progressPanel.startStreaming('generate');
+
       // Simulate streaming for demonstration purposes
       // In real implementation, this would be driven by the orchestrator
-      setTimeout(() => {
-        context.services?.progressPanel.appendStreamContent('generate', '\n\nSection 1: Introduction\n- Key point A\n- Key point B\n');
-      }, 500);
+      const simulateStreaming = async () => {
+        const chunks = [
+          '# アウトライン生成中...\n\n',
+          '## Section 1: Introduction\n',
+          '- 導入部分の説明\n',
+          '- 背景と目的\n',
+          '- 概要の提示\n\n',
+          '## Section 2: Main Content\n',
+          '- メインポイント1\n',
+          '- メインポイント2\n',
+          '- 詳細な説明\n\n',
+          '## Section 3: Conclusion\n',
+          '- まとめ\n',
+          '- 今後の展望\n',
+        ];
 
-      setTimeout(() => {
-        context.services?.progressPanel.appendStreamContent('generate', 'Section 2: Main Content\n- Detail 1\n- Detail 2\n');
-      }, 1000);
+        for (let i = 0; i < chunks.length; i++) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          context.services?.progressPanel.appendStreamContent('generate', chunks[i]);
+        }
+
+        // ストリーミングを終了
+        await new Promise(resolve => setTimeout(resolve, 500));
+        context.services?.progressPanel.stopStreaming('generate', chunks.join(''));
+      };
+
+      void simulateStreaming();
     }
 
     const result = await context.orchestrator.startOutlineCycle({
