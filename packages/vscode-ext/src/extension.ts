@@ -23,6 +23,8 @@ import { SessionTreeDataProvider } from './views/session-tree-provider.js';
 import { TemplateDetailViewProvider } from './views/template-detail-view-provider.js';
 import { TemplateTreeDataProvider } from './views/template-tree-provider.js';
 import { ProgressPanelProvider } from './views/progress-panel-provider.js';
+import { LanguageModelChatProvider } from './integrations/language-model-bridge.js';
+import { LanguageModelToolManager } from './integrations/language-model-tools.js';
 
 import type { OrchestratorLike, TemplateRegistryLike, PersonaManagerLike } from './commands/types.js';
 
@@ -260,7 +262,43 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     },
   });
 
-  outputChannel.appendLine('AI Writer extension activated with all commands and views registered');
+  // Initialize Language Model integration (Task 6)
+  outputChannel.appendLine('Initializing Language Model integration...');
+  
+  // Initialize Language Model Chat Provider
+  const languageModelProvider = new LanguageModelChatProvider();
+  const isLMAvailable = await languageModelProvider.isAvailable();
+  
+  if (isLMAvailable) {
+    outputChannel.appendLine('Language Model API is available');
+    
+    // Try to initialize with default model
+    const initialized = await languageModelProvider.initialize();
+    if (initialized) {
+      const modelInfo = languageModelProvider.getCurrentModelInfo();
+      outputChannel.appendLine(`Initialized with model: ${modelInfo?.name || 'unknown'}`);
+    } else {
+      outputChannel.appendLine('No language models available at this time');
+    }
+  } else {
+    outputChannel.appendLine('Language Model API is not available in this VSCode version');
+  }
+  
+  // Register Language Model Tools
+  const toolManager = new LanguageModelToolManager();
+  const toolDisposables = toolManager.registerTools();
+  
+  if (toolDisposables.length > 0) {
+    outputChannel.appendLine(`Registered ${toolDisposables.length} Language Model tools`);
+    context.subscriptions.push(...toolDisposables);
+    context.subscriptions.push({
+      dispose: () => toolManager.dispose(),
+    });
+  } else {
+    outputChannel.appendLine('Language Model Tools API not available or no tools registered');
+  }
+
+  outputChannel.appendLine('AI Writer extension activated with all commands, views, and Language Model integration');
 }
 
 export function deactivate(): void {
