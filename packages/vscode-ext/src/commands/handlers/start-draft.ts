@@ -48,6 +48,30 @@ export const startDraftHandler: CommandHandler<StartDraftInput, string> = async 
 
     context.outputChannel.appendLine(`Starting draft generation for outline: ${outlineId}`);
 
+    // Show progress panel with initial state
+    const tempSessionId = 'temp-' + Date.now();
+    if (context.services?.progressPanel) {
+      context.services.progressPanel.show({
+        sessionId: tempSessionId,
+        mode: 'draft',
+        currentStep: 'generate',
+        steps: [
+          {
+            type: 'generate',
+            status: 'running',
+            timestamp: new Date().toISOString(),
+            content: 'Generating draft from outline...',
+          },
+        ],
+        isStreaming: true,
+      });
+
+      // Simulate streaming
+      setTimeout(() => {
+        context.services?.progressPanel.appendStreamContent('generate', '\n\nIntroduction paragraph with engaging opening...\n');
+      }, 500);
+    }
+
     const result = await context.orchestrator.startDraftCycle({
       outlineId,
       personaId: input?.personaId,
@@ -56,6 +80,46 @@ export const startDraftHandler: CommandHandler<StartDraftInput, string> = async 
 
     if (result.kind === 'ok' && result.value) {
       const sessionId = result.value.sessionId;
+      
+      // Update progress panel
+      if (context.services?.progressPanel) {
+        context.services.progressPanel.updateState({
+          sessionId,
+          currentStep: 'critique',
+          steps: [
+            {
+              type: 'generate',
+              status: 'completed',
+              timestamp: new Date().toISOString(),
+              content: 'Draft generated successfully',
+            },
+            {
+              type: 'critique',
+              status: 'running',
+              timestamp: new Date().toISOString(),
+              content: 'Reviewing draft quality...',
+            },
+          ],
+          isStreaming: false,
+        });
+      }
+
+      // Update session manager
+      if (context.services?.sessionManager) {
+        context.services.sessionManager.upsertSession({
+          id: sessionId,
+          mode: 'draft',
+          outlineId,
+          personaId: input?.personaId,
+          templateId: input?.templateId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'running',
+          progressMessage: 'Draft generation in progress',
+          previewContent: `# Draft from outline: ${outlineId}\n\nGeneration in progress...`,
+        });
+      }
+
       vscode.window.showInformationMessage(`Started draft generation (Session: ${sessionId})`);
       return { kind: 'ok', value: sessionId };
     }
