@@ -19,7 +19,7 @@ export interface TemplateConfig {
   id: string;
   name: string;
   description?: string;
-  points: Array<{ id: string; title: string; instructions: string }>;
+  points: { id: string; title: string; instructions: string }[];
 }
 
 export interface PersonaConfig {

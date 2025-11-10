@@ -358,7 +358,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         { id: 'gemini', name: 'Google Gemini', enabled: false, model: 'gemini-pro', temperature: 0.7 },
       ];
       
-      const templates: Array<{ id: string; name: string; description?: string; points: Array<{ id: string; title: string; instructions: string }> }> = [];
+      const templates: { id: string; name: string; description?: string; points: { id: string; title: string; instructions: string }[] }[] = [];
       if (templateRegistry) {
         try {
           const result = await templateRegistry.listTemplates();
@@ -379,7 +379,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }
       }
 
-      const personas: Array<{ id: string; name: string; enabled: boolean; tone?: string; audience?: string; parameters: Record<string, string> }> = [];
+      const personas: { id: string; name: string; enabled: boolean; tone?: string; audience?: string; parameters: Record<string, string> }[] = [];
       if (personaManager) {
         try {
           const result = await personaManager.listPersonas();

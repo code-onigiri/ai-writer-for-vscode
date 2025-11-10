@@ -88,9 +88,9 @@ export const startOutlineHandler: CommandHandler<StartOutlineInput, string> = as
           '- 今後の展望\n',
         ];
 
-        for (let i = 0; i < chunks.length; i++) {
+        for (const chunk of chunks) {
           await new Promise(resolve => setTimeout(resolve, 200));
-          context.services?.progressPanel.appendStreamContent('generate', chunks[i]);
+          context.services?.progressPanel.appendStreamContent('generate', chunk);
         }
 
         // ストリーミングを終了

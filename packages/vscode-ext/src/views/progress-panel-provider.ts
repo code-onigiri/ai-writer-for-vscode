@@ -24,7 +24,7 @@ export interface ProgressState {
 export class ProgressPanelProvider {
   private panel: vscode.WebviewPanel | undefined;
   private currentState: ProgressState | undefined;
-  private streamBuffer: Map<number, string> = new Map(); // ステップごとのストリームバッファ
+  private streamBuffer = new Map<number, string>(); // ステップごとのストリームバッファ
 
   public show(state: ProgressState): void {
     if (!this.panel) {

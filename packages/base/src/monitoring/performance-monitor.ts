@@ -103,7 +103,7 @@ export function createPerformanceMonitor(
 ): PerformanceMonitor {
   const metrics: MetricStore = [];
   const alerts: AlertStore = [];
-  const activeOperations: Map<string, ActiveOperation> = new Map();
+  const activeOperations = new Map<string, ActiveOperation>();
 
   const sampleInterval = options.sampleInterval ?? 60000; // 1 minute
   const retentionPeriod = options.retentionPeriod ?? 86400000; // 24 hours

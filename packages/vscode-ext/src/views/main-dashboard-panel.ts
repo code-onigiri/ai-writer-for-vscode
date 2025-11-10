@@ -496,5 +496,5 @@ export interface SessionItem {
 export interface TemplateItem {
   id: string;
   name: string;
-  points?: Array<{ id: string }>;
+  points?: { id: string }[];
 }
