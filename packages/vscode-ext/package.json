@@ -109,6 +109,16 @@
         "category": "AI Writer"
       },
       {
+        "command": "ai-writer.configureProviders",
+        "title": "AI Writer: Configure AI Providers",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.reviseDocument",
+        "title": "AI Writer: Revise Current Document",
+        "category": "AI Writer"
+      },
+      {
         "command": "ai-writer.openSession",
         "title": "Open Session",
         "category": "AI Writer"

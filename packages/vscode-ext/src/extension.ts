@@ -15,6 +15,8 @@ import {
   viewStorageStatsHandler,
   viewAuditStatsHandler,
   cleanupStorageHandler,
+  configureProvidersHandler,
+  reviseDocumentHandler,
 } from './commands/index.js';
 import { SessionManager } from './services/session-manager.js';
 import { SessionTreeDataProvider } from './views/session-tree-provider.js';
@@ -196,6 +198,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     title: 'AI Writer: Cleanup Old Sessions',
     description: 'Delete old sessions to free up space',
     handler: cleanupStorageHandler,
+  });
+
+  // Register revision commands
+  commandController.registerCommand({
+    id: 'ai-writer.configureProviders',
+    title: 'AI Writer: Configure AI Providers',
+    description: 'Configure AI provider settings and credentials',
+    handler: configureProvidersHandler,
+  });
+
+  commandController.registerCommand({
+    id: 'ai-writer.reviseDocument',
+    title: 'AI Writer: Revise Current Document',
+    description: 'Get AI-powered suggestions for improving the current document',
+    handler: reviseDocumentHandler,
   });
 
   // Register view-related commands
