@@ -13,6 +13,35 @@
     "onStartupFinished"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ai-writer",
+          "title": "AI Writer",
+          "icon": "$(pencil)"
+        }
+      ]
+    },
+    "views": {
+      "ai-writer": [
+        {
+          "id": "ai-writer.sessionsView",
+          "name": "Sessions",
+          "when": "true"
+        },
+        {
+          "id": "ai-writer.templatesView",
+          "name": "Templates",
+          "when": "true"
+        },
+        {
+          "id": "ai-writer.templateDetailView",
+          "name": "Template Details",
+          "type": "webview",
+          "when": "true"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "ai-writer.startOutline",
@@ -68,8 +97,44 @@
         "command": "ai-writer.cleanupStorage",
         "title": "AI Writer: Cleanup Old Sessions",
         "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.openSession",
+        "title": "Open Session",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.showTemplateDetails",
+        "title": "Show Template Details",
+        "category": "AI Writer"
+      },
+      {
+        "command": "ai-writer.refreshSessions",
+        "title": "Refresh Sessions",
+        "category": "AI Writer",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ai-writer.refreshTemplates",
+        "title": "Refresh Templates",
+        "category": "AI Writer",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "ai-writer.refreshSessions",
+          "when": "view == ai-writer.sessionsView",
+          "group": "navigation"
+        },
+        {
+          "command": "ai-writer.refreshTemplates",
+          "when": "view == ai-writer.templatesView",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "files": [
     "dist"
