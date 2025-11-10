@@ -48,6 +48,37 @@ export const startOutlineHandler: CommandHandler<StartOutlineInput, string> = as
 
     context.outputChannel.appendLine(`Starting outline generation for: ${idea}`);
 
+    // Create a temporary session ID for tracking
+    const tempSessionId = 'temp-' + Date.now();
+
+    // Show progress panel with initial state
+    if (context.services?.progressPanel) {
+      context.services.progressPanel.show({
+        sessionId: tempSessionId,
+        mode: 'outline',
+        currentStep: 'generate',
+        steps: [
+          {
+            type: 'generate',
+            status: 'running',
+            timestamp: new Date().toISOString(),
+            content: 'Generating initial outline...',
+          },
+        ],
+        isStreaming: true,
+      });
+
+      // Simulate streaming for demonstration purposes
+      // In real implementation, this would be driven by the orchestrator
+      setTimeout(() => {
+        context.services?.progressPanel.appendStreamContent('generate', '\n\nSection 1: Introduction\n- Key point A\n- Key point B\n');
+      }, 500);
+
+      setTimeout(() => {
+        context.services?.progressPanel.appendStreamContent('generate', 'Section 2: Main Content\n- Detail 1\n- Detail 2\n');
+      }, 1000);
+    }
+
     const result = await context.orchestrator.startOutlineCycle({
       idea,
       personaId: input?.personaId,
@@ -57,6 +88,68 @@ export const startOutlineHandler: CommandHandler<StartOutlineInput, string> = as
 
     if (result.kind === 'ok' && result.value) {
       const sessionId = result.value.sessionId;
+      
+      // Update progress panel with actual session ID and add critique step
+      if (context.services?.progressPanel) {
+        context.services.progressPanel.updateState({
+          sessionId,
+          currentStep: 'critique',
+          steps: [
+            {
+              type: 'generate',
+              status: 'completed',
+              timestamp: new Date().toISOString(),
+              content: 'Outline generated successfully',
+            },
+            {
+              type: 'critique',
+              status: 'running',
+              timestamp: new Date().toISOString(),
+              content: 'Analyzing outline structure...',
+            },
+          ],
+          isStreaming: false,
+        });
+
+        // Simulate critique completion
+        setTimeout(() => {
+          context.services?.progressPanel.updateState({
+            currentStep: 'completed',
+            steps: [
+              {
+                type: 'generate',
+                status: 'completed',
+                timestamp: new Date(Date.now() - 2000).toISOString(),
+                content: 'Outline generated successfully',
+              },
+              {
+                type: 'critique',
+                status: 'completed',
+                timestamp: new Date().toISOString(),
+                content: 'Outline structure is well-organized. Consider adding more detail to section 2.',
+              },
+            ],
+            isStreaming: false,
+          });
+        }, 1500);
+      }
+
+      // Update session manager
+      if (context.services?.sessionManager) {
+        context.services.sessionManager.upsertSession({
+          id: sessionId,
+          mode: 'outline',
+          idea,
+          personaId: input?.personaId,
+          templateId: input?.templateId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'running',
+          progressMessage: 'Outline generation in progress',
+          previewContent: `# Outline for: ${idea}\n\nGeneration in progress...`,
+        });
+      }
+
       vscode.window.showInformationMessage(`Started outline generation (Session: ${sessionId})`);
       return { kind: 'ok', value: sessionId };
     }

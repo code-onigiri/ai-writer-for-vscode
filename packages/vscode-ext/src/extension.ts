@@ -6,20 +6,27 @@ import {
   startDraftHandler,
   listTemplatesHandler,
   createTemplateHandler,
+  editTemplateHandler,
   viewComplianceReportHandler,
   listPersonasHandler,
   createPersonaHandler,
+  editPersonaHandler,
   validateCompatibilityHandler,
   viewStorageStatsHandler,
   viewAuditStatsHandler,
   cleanupStorageHandler,
+  configureProvidersHandler,
+  reviseDocumentHandler,
 } from './commands/index.js';
 import { SessionManager } from './services/session-manager.js';
 import { SessionTreeDataProvider } from './views/session-tree-provider.js';
 import { TemplateDetailViewProvider } from './views/template-detail-view-provider.js';
 import { TemplateTreeDataProvider } from './views/template-tree-provider.js';
+import { ProgressPanelProvider } from './views/progress-panel-provider.js';
+import { LanguageModelChatProvider } from './integrations/language-model-bridge.js';
+import { LanguageModelToolManager } from './integrations/language-model-tools.js';
 
-import type { OrchestratorLike, TemplateRegistryLike } from './commands/types.js';
+import type { OrchestratorLike, TemplateRegistryLike, PersonaManagerLike } from './commands/types.js';
 
 let commandController: CommandController | undefined;
 
@@ -39,6 +46,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Initialize orchestrator and registry (dynamically import to avoid compile-time package boundary issues)
   let orchestrator: OrchestratorLike | undefined;
   let templateRegistry: TemplateRegistryLike | undefined;
+  let personaManager: PersonaManagerLike | undefined;
   try {
     // Use a computed import string to reduce static analysis by TypeScript tooling.
     const pkg = '@ai-writer/base';
@@ -46,6 +54,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const maybeBase = base as { 
       createGenerationOrchestrator?: unknown;
       createTemplateRegistry?: unknown;
+      createPersonaManager?: unknown;
     };
     if (maybeBase && typeof maybeBase.createGenerationOrchestrator === 'function') {
       // safe to call because we checked the type at runtime
@@ -58,15 +67,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       // @ts-ignore -- runtime-checked
       templateRegistry = maybeBase.createTemplateRegistry();
     }
+    if (maybeBase && typeof maybeBase.createPersonaManager === 'function') {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore -- runtime-checked
+      personaManager = maybeBase.createPersonaManager();
+    }
   } catch (err) {
     // Non-fatal: log to output channel. Handlers will show an error if orchestrator is missing.
-    outputChannel.appendLine(`Could not initialize orchestrator/registry: ${err instanceof Error ? err.message : String(err)}`);
+    outputChannel.appendLine(`Could not initialize orchestrator/registry/personaManager: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // Create tree data providers
   const sessionTreeProvider = new SessionTreeDataProvider(sessionManager);
   const templateTreeProvider = new TemplateTreeDataProvider(templateRegistry);
   const templateDetailProvider = new TemplateDetailViewProvider(context.extensionUri, templateRegistry);
+  const progressPanelProvider = new ProgressPanelProvider();
 
   // Register tree views
   const sessionsView = vscode.window.registerTreeDataProvider('ai-writer.sessionsView', sessionTreeProvider);
@@ -75,8 +90,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   
   context.subscriptions.push(sessionsView, templatesView, templateDetailView);
 
-  // Initialize command controller
-  commandController = new CommandController(context, outputChannel, orchestrator);
+  // Initialize command controller with services
+  const services = {
+    sessionManager,
+    templateRegistry,
+    personaManager,
+    progressPanel: progressPanelProvider,
+    refreshSessions: () => sessionTreeProvider.refresh(),
+    refreshTemplates: () => templateTreeProvider.refresh(),
+    refreshPersonas: () => { 
+      // TODO: implement when persona tree provider is added
+    },
+    openTemplateDetail: (templateId: string) => templateDetailProvider.showTemplate(templateId),
+    statusBar: statusBarItem,
+  };
+
+  commandController = new CommandController(context, outputChannel, orchestrator, services);
 
   // Register generation commands
   commandController.registerCommand({
@@ -109,6 +138,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
 
   commandController.registerCommand({
+    id: 'ai-writer.editTemplate',
+    title: 'AI Writer: Edit Template',
+    description: 'Edit an existing writing template',
+    handler: editTemplateHandler,
+  });
+
+  commandController.registerCommand({
     id: 'ai-writer.viewComplianceReport',
     title: 'AI Writer: View Compliance Report',
     description: 'View template compliance report for current session',
@@ -128,6 +164,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     title: 'AI Writer: Create Persona',
     description: 'Create a new writing persona',
     handler: createPersonaHandler,
+  });
+
+  commandController.registerCommand({
+    id: 'ai-writer.editPersona',
+    title: 'AI Writer: Edit Persona',
+    description: 'Edit an existing writing persona',
+    handler: editPersonaHandler,
   });
 
   commandController.registerCommand({
@@ -157,6 +200,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     title: 'AI Writer: Cleanup Old Sessions',
     description: 'Delete old sessions to free up space',
     handler: cleanupStorageHandler,
+  });
+
+  // Register revision commands
+  commandController.registerCommand({
+    id: 'ai-writer.configureProviders',
+    title: 'AI Writer: Configure AI Providers',
+    description: 'Configure AI provider settings and credentials',
+    handler: configureProvidersHandler,
+  });
+
+  commandController.registerCommand({
+    id: 'ai-writer.reviseDocument',
+    title: 'AI Writer: Revise Current Document',
+    description: 'Get AI-powered suggestions for improving the current document',
+    handler: reviseDocumentHandler,
   });
 
   // Register view-related commands
@@ -204,7 +262,43 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     },
   });
 
-  outputChannel.appendLine('AI Writer extension activated with all commands and views registered');
+  // Initialize Language Model integration (Task 6)
+  outputChannel.appendLine('Initializing Language Model integration...');
+  
+  // Initialize Language Model Chat Provider
+  const languageModelProvider = new LanguageModelChatProvider();
+  const isLMAvailable = await languageModelProvider.isAvailable();
+  
+  if (isLMAvailable) {
+    outputChannel.appendLine('Language Model API is available');
+    
+    // Try to initialize with default model
+    const initialized = await languageModelProvider.initialize();
+    if (initialized) {
+      const modelInfo = languageModelProvider.getCurrentModelInfo();
+      outputChannel.appendLine(`Initialized with model: ${modelInfo?.name || 'unknown'}`);
+    } else {
+      outputChannel.appendLine('No language models available at this time');
+    }
+  } else {
+    outputChannel.appendLine('Language Model API is not available in this VSCode version');
+  }
+  
+  // Register Language Model Tools
+  const toolManager = new LanguageModelToolManager();
+  const toolDisposables = toolManager.registerTools();
+  
+  if (toolDisposables.length > 0) {
+    outputChannel.appendLine(`Registered ${toolDisposables.length} Language Model tools`);
+    context.subscriptions.push(...toolDisposables);
+    context.subscriptions.push({
+      dispose: () => toolManager.dispose(),
+    });
+  } else {
+    outputChannel.appendLine('Language Model Tools API not available or no tools registered');
+  }
+
+  outputChannel.appendLine('AI Writer extension activated with all commands, views, and Language Model integration');
 }
 
 export function deactivate(): void {

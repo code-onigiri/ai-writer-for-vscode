@@ -1,5 +1,6 @@
 export * from './config/index.js';
 export * from './logging/index.js';
+export * from './monitoring/index.js';
 export * from './orchestration/index.js';
 export * from './persona/index.js';
 export * from './provider/index.js';

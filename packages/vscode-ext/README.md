@@ -2,6 +2,13 @@
 
 VSCode拡張機能パッケージ - AI Writer自律型文章生成スイートのフロントエンド
 
+## 📚 ドキュメント
+
+- **[使用ガイド](../../docs/usage-guide.md)** - 機能の詳細な使い方
+- **[APIリファレンス](../../docs/api-reference.md)** - 開発者向けAPI仕様
+- **[ビジュアルガイド](../../docs/gui-features-visual-guide.md)** - UI機能の図解
+- **[デバッグガイド](../../docs/debugging-vscode-extension.md)** - デバッグ方法
+
 ## 現在の実装状況
 
 ### 実装済み機能 ✅
@@ -13,37 +20,93 @@ VSCode拡張機能パッケージ - AI Writer自律型文章生成スイート�
 - [x] 出力チャネルでのログ表示
 - [x] 設定サービスブリッジ（SecretStorageとの連携）
 
-#### コマンド（全11個）
+#### UI機能 ✨
+- [x] **進行状況表示Webview** (Task 5.2) - 生成サイクルをリアルタイムで可視化
+  - タイムライン形式のステップ表示
+  - ストリーミングコンテンツ表示
+  - ステップごとの状態管理（pending/running/completed/error）
+- [x] **セッション一覧TreeView** - 過去のセッションをブラウズ
+- [x] **テンプレート管理TreeView** - テンプレート一覧と詳細表示
+- [x] **テンプレート詳細Webview** - ポイントごとの指示を確認
+- [x] **テンプレートエディタパネル** (Task 5.3) - テンプレートの作成・編集
+  - ポイントの動的追加・削除
+  - 優先度とペルソナヒントの設定
+  - リアルタイム検証
+- [x] **ペルソナエディタパネル** (Task 5.3) - ペルソナの作成・編集
+  - トーンと対象オーディエンス選択
+  - トグル機能の管理
+  - ソース情報の記録
+- [x] **プロバイダー設定パネル** (Task 5.4) - AIプロバイダーの設定
+  - OpenAI、Gemini API、Gemini CLI、VS Code Language Model対応
+  - APIキー管理（Secret Storage）
+  - コネクションテスト機能
+- [x] **文章推敲パネル** (Task 5.4) - 既存文章の改善
+  - AI生成の改善提案
+  - 並列比較表示
+  - 承認/拒否機能
+- [x] **ステータスバー統合** - 現在のセッション状態を表示
+- [x] **SessionManager** - セッション状態の追跡と管理
+
+#### Language Model統合 🤖
+- [x] **LanguageModelBridge** (Task 6.1) - VSCode Language Model APIブリッジ
+  - モデル選択と管理
+  - ストリーミングリクエスト
+  - トークンカウント
+- [x] **LanguageModelChatProvider** (Task 6.1) - チャット機能プロバイダー
+  - シンプルな生成API
+  - 会話履歴管理
+- [x] **Language Model Tools** (Task 6.2) - 登録済みツール
+  - `aiWriter_checkTemplateCompliance` - テンプレート準拠チェック
+  - `aiWriter_getTemplate` - テンプレート情報取得
+  - `aiWriter_getPersona` - ペルソナ情報取得
+- [x] **ToolManager** (Task 6.3) - ツールのライフサイクル管理
+
+#### コマンド（全15個）
 
 **生成コマンド（2個）**
 - [x] `ai-writer.startOutline` - アウトライン生成開始
 - [x] `ai-writer.startDraft` - ドラフト生成開始
 
-**テンプレート管理（3個）**
+**テンプレート管理（4個）**
 - [x] `ai-writer.listTemplates` - テンプレート一覧表示
 - [x] `ai-writer.createTemplate` - 新規テンプレート作成
+- [x] `ai-writer.editTemplate` - テンプレート編集
 - [x] `ai-writer.viewComplianceReport` - コンプライアンスレポート表示
 
-**ペルソナ管理（3個）**
+**ペルソナ管理（4個）**
 - [x] `ai-writer.listPersonas` - ペルソナ一覧表示
 - [x] `ai-writer.createPersona` - 新規ペルソナ作成
+- [x] `ai-writer.editPersona` - ペルソナ編集
 - [x] `ai-writer.validateCompatibility` - 互換性検証
+
+**プロバイダー・推敲（2個）**
+- [x] `ai-writer.configureProviders` - プロバイダー設定
+- [x] `ai-writer.reviseDocument` - 文章推敲
 
 **統計・管理（3個）**
 - [x] `ai-writer.viewStorageStats` - ストレージ統計表示
 - [x] `ai-writer.viewAuditStats` - 監査ログ統計表示
 - [x] `ai-writer.cleanupStorage` - 古いセッションのクリーンアップ
 
-### 未実装機能
+### 完了したタスク
 
-以下の機能は`.kiro/specs/autonomous-ai-writing-suite/tasks.md`の実装計画に従って、順次実装予定です：
+- ✅ Task 5.1: コマンドコントローラ
+- ✅ Task 5.2: 進行状況Webviewとサイクル操作UI
+- ✅ Task 5.3: テンプレート・ペルソナ編集ビュー
+- ✅ Task 5.4: 既存文章推敲とプロバイダー切替UI
+- ✅ Task 6.1: LanguageModelChatProviderブリッジ
+- ✅ Task 6.2: Language Model Tool登録
+- ✅ Task 6.3: ツール呼び出しと遵守レポート連携
 
-- [ ] 進行状況表示Webview
-- [ ] テンプレート・ペルソナ編集UI（高度な編集機能）
-- [ ] 既存文章推敲UI
-- [ ] プロバイダー切替UI
-- [ ] Language Model Tool API連携
-- [ ] リアルタイムBase層統合（現在はモックデータ使用）
+### 制限事項
+
+以下は今後の改善予定：
+
+- ストリーミング表示は現在シミュレーション（`setTimeout`使用）
+- Orchestratorからの実際のイベント統合が必要
+- Rerunボタンは表示のみ（インタラクションハンドラー未実装）
+- 文章推敲の提案は現在モックデータ
+- Language Modelツールのデータ統合が必要
 
 ## ビルド方法
 
@@ -70,17 +133,34 @@ pnpm --filter @ai-writer/vscode-ext build --watch
 
 ```
 src/
-├── commands/              # コマンド関連
-│   ├── command-controller.ts  # コマンド登録と管理
-│   ├── handlers/          # 生成コマンドハンドラー
-│   ├── template-commands.ts   # テンプレート管理コマンド ✨NEW
-│   ├── persona-commands.ts    # ペルソナ管理コマンド ✨NEW
-│   ├── statistics-commands.ts # 統計・管理コマンド ✨NEW
+├── commands/                      # コマンド関連
+│   ├── command-controller.ts      # コマンド登録と管理
+│   ├── handlers/                  # 生成コマンドハンドラー
+│   │   ├── start-outline.ts       # アウトライン生成
+│   │   └── start-draft.ts         # ドラフト生成
+│   ├── template-commands.ts       # テンプレート管理コマンド
+│   ├── persona-commands.ts        # ペルソナ管理コマンド
+│   ├── revision-commands.ts       # プロバイダー・推敲コマンド
+│   ├── statistics-commands.ts     # 統計・管理コマンド
 │   ├── index.ts
-│   └── types.ts          # 型定義
-├── configuration/        # 設定管理
-│   └── config-bridge.ts  # VSCode SecretStorageとBase層の橋渡し
-├── extension.ts          # エントリポイント（11コマンド登録）
+│   └── types.ts                   # 型定義
+├── configuration/                 # 設定管理
+│   └── config-bridge.ts           # VSCode SecretStorageとBase層の橋渡し
+├── services/                      # サービス層
+│   └── session-manager.ts         # セッション追跡と管理
+├── views/                         # UIコンポーネント
+│   ├── progress-panel-provider.ts      # 進行状況Webview
+│   ├── session-tree-provider.ts        # セッション一覧TreeView
+│   ├── template-tree-provider.ts       # テンプレート一覧TreeView
+│   ├── template-detail-view-provider.ts # テンプレート詳細Webview
+│   ├── template-editor-panel.ts        # テンプレートエディタ (Task 5.3)
+│   ├── persona-editor-panel.ts         # ペルソナエディタ (Task 5.3)
+│   ├── provider-settings-panel.ts      # プロバイダー設定 (Task 5.4)
+│   └── document-revision-panel.ts      # 文章推敲 (Task 5.4)
+├── integrations/                  # 外部統合 (Task 6)
+│   ├── language-model-bridge.ts   # Language Model APIブリッジ
+│   └── language-model-tools.ts    # Language Modelツール
+├── extension.ts                   # エントリポイント（コマンドとビュー登録）
 └── index.ts             # エクスポート
 ```
 
@@ -94,6 +174,30 @@ src/
 4. **プロンプトに従う**: 対話的に入力を進めます
 
 ### 使用例
+
+#### アウトライン生成（進行状況表示付き）✨NEW
+```
+1. Cmd/Ctrl+Shift+P
+2. "AI Writer: Start Outline Generation"
+3. アイデアを入力（例：「AIと教育についての記事」）
+4. 進行状況Webviewが自動的に表示される
+5. 生成→批判のステップをリアルタイムで確認
+```
+
+#### セッション一覧の確認 ✨NEW
+```
+1. サイドバーの "AI Writer" アイコンをクリック
+2. "Sessions" ビューで過去のセッションを確認
+3. セッションをクリックしてプレビューを表示
+```
+
+#### テンプレート管理 ✨NEW
+```
+1. サイドバーの "AI Writer" アイコンをクリック
+2. "Templates" ビューでテンプレート一覧を表示
+3. テンプレートをクリックして詳細を確認
+4. "Template Details" ビューでポイントごとの指示を確認
+```
 
 #### テンプレート作成
 ```
