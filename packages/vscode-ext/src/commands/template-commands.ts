@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import * as vscode from 'vscode';
 
 import type {
@@ -169,7 +170,7 @@ function buildTemplatePoints(raw: string): TemplatePointLike[] {
 }
 
 function derivePointTitle(content: string, index: number): string {
-  const candidate = content.split(/[.:\-]/, 1)[0]?.trim();
+  const candidate = content.split(/[.:+-]/, 1)[0]?.trim();
   if (candidate && candidate.length > 0) {
     return candidate;
   }

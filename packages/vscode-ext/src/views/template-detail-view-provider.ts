@@ -1,12 +1,12 @@
-import * as vscode from 'vscode';
-
+import type * as vscode from 'vscode';
 import type { TemplateDescriptorLike, TemplateRegistryLike } from '../commands/types.js';
 
 export class TemplateDetailViewProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
 
+  // extensionUri reserved for future use (e.g., loading scripts/styles from disk)
   constructor(
-    private readonly extensionUri: vscode.Uri,
+    _extensionUri: vscode.Uri,
     private readonly registry?: TemplateRegistryLike,
   ) {}
 

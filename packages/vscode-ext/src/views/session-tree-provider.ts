@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 
-import { SessionManager, type SessionRecord } from '../services/session-manager.js';
+import type { SessionManager , SessionRecord } from '../services/session-manager.js';
 
-export class SessionTreeDataProvider implements vscode.TreeDataProvider<SessionTreeItem> {
-  private readonly changeEmitter = new vscode.EventEmitter<SessionTreeItem | undefined>();
+
+export class SessionTreeDataProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+  private readonly changeEmitter = new vscode.EventEmitter<vscode.TreeItem | undefined>();
 
   constructor(private readonly sessionManager: SessionManager) {
     this.sessionManager.onDidChangeSessions(() => {
@@ -11,15 +12,15 @@ export class SessionTreeDataProvider implements vscode.TreeDataProvider<SessionT
     });
   }
 
-  get onDidChangeTreeData(): vscode.Event<SessionTreeItem | undefined> {
+  get onDidChangeTreeData(): vscode.Event<vscode.TreeItem | undefined> {
     return this.changeEmitter.event;
   }
 
-  getTreeItem(element: SessionTreeItem): vscode.TreeItem {
+  getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
     return element;
   }
 
-  getChildren(element?: SessionTreeItem): vscode.ProviderResult<SessionTreeItem[]> {
+  getChildren(element?: vscode.TreeItem): vscode.ProviderResult<vscode.TreeItem[]> {
     if (element) {
       return [];
     }

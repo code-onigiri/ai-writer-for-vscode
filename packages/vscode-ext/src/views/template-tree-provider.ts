@@ -46,7 +46,7 @@ export class TemplateTreeDataProvider implements vscode.TreeDataProvider<vscode.
 }
 
 class TemplateTreeItem extends vscode.TreeItem {
-  readonly children: readonly vscode.TreeItem[];
+  readonly children: vscode.TreeItem[];
 
   constructor(readonly template: TemplateDescriptorLike) {
     super(template.name, vscode.TreeItemCollapsibleState.Collapsed);
