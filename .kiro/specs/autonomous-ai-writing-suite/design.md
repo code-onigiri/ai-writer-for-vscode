@@ -353,19 +353,75 @@ interface CommandController {
 ```
 
 #### Webview Panels
-- **Responsibility**: 進行状況表示、テンプレート編集UI。
-- **Dependencies**: Webview、Message passing。
+- **Responsibility**: 進行状況表示、テンプレート編集UI、メイン制御パネル、設定管理GUI。
+- **Dependencies**: Webview、Message passing、リアルタイムストリーミング。
 
 **Contract**
 ```typescript
 interface ProgressPanelMessage {
-  type: "progress" | "critique" | "question" | "error";
+  type: "progress" | "critique" | "question" | "error" | "stream";
   payload: unknown;
+}
+
+interface MainDashboardPanel {
+  showDashboard(): void;
+  startOutlineGeneration(idea: string): void;
+  startDraftGeneration(outlineId: string): void;
+  openSettings(): void;
+}
+
+interface SettingsPanel {
+  showSettings(): void;
+  updateProviderConfig(config: ProviderConfig): Promise<void>;
+  updateTemplates(templates: TemplateDescriptor[]): Promise<void>;
+  updatePersonas(personas: PersonaDescriptor[]): Promise<void>;
+}
+
+interface StreamingProgressPanel {
+  show(sessionId: string, mode: 'outline' | 'draft'): void;
+  appendStreamChunk(stepType: string, chunk: string): void;
+  updateStepStatus(stepType: string, status: 'running' | 'completed' | 'error'): void;
+  showStepResult(stepType: string, content: string): void;
 }
 ```
 
+**Webview Structure**:
+- **Main Dashboard**: アウトライン生成・ドラフト生成・設定へのアクセスポイント
+- **Settings Panel**: AI Provider、テンプレート、ペルソナの管理をタブ形式で提供
+- **Streaming Progress Panel**: リアルタイムの処理進捗とストリーミング出力を表示
+- **Template Editor**: テンプレートポイントの編集と保存
+- **Persona Editor**: ペルソナパラメータの編集と保存
+
+**Streaming Implementation**:
+```typescript
+// ストリーミング処理の実装パターン
+async function handleStreamingGeneration(
+  panel: StreamingProgressPanel,
+  orchestrator: GenerationOrchestrator,
+  input: GenerationInput
+): Promise<void> {
+  const stream = await orchestrator.generateWithStream(input);
+  
+  for await (const chunk of stream) {
+    // リアルタイムでWebviewへチャンクを送信
+    panel.appendStreamChunk(chunk.stepType, chunk.content);
+    
+    if (chunk.isComplete) {
+      panel.updateStepStatus(chunk.stepType, 'completed');
+      panel.showStepResult(chunk.stepType, chunk.fullContent);
+    }
+  }
+}
+```
+
+**GUI Integration with Commands**:
+- 既存のコマンドパレット経由の実行を維持
+- WebviewからもCommandを実行可能にする
+- Command実行時にWebviewを自動的に表示し、進捗を可視化
+
 #### Tree/Notebook Views
 - Session履歴・テンプレート一覧をTreeViewで表示。Notebook形式でテンプレート編集を検討。
+- TreeViewからWebviewへの連携を実装し、選択したアイテムの詳細をWebviewで表示。
 
 ### LMTAPI-vscode Layer
 

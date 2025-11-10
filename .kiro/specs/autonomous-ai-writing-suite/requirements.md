@@ -67,4 +67,27 @@ AI Writerは、アイデア入力からアウトライン生成、アウトラ�
 6. While ライティングテンプレートが適用されている間, the Autonomous AI Writing Suite shall 各ポイント処理を生成→批判→再生成の順序で進行させ、各段階の完了確認を取得する。
 7. When AIエージェントが特定ポイントのガイダンスを必要としたとき, the Autonomous AI Writing Suite shall 該当テンプレート指示を自動で参照し、生成プロンプトに組み込む。
 
+### Requirement 7: WebviewベースGUIインターフェース
+**Objective:** As a ユーザー, I want Webviewを通じて全ての機能にGUIでアクセスしたい, so that コマンドパレットを使わずに直感的に操作できる
+
+#### Acceptance Criteria
+1. When ユーザーがAI Writerビューを開いたとき, the Autonomous AI Writing Suite shall メインダッシュボードWebviewを表示し、アウトライン生成・ドラフト生成・設定の各機能へアクセスできるボタンを提供する。
+2. When ユーザーが設定パネルを開いたとき, the Autonomous AI Writing Suite shall AI Provider設定、テンプレート管理、ペルソナ管理をタブ形式のGUIで表示し、各項目を編集・保存できるようにする。
+3. Where アウトライン生成またはドラフト生成が実行されている場合, the Autonomous AI Writing Suite shall 処理の進捗をWebview上でリアルタイムに表示し、各ステップ（生成・批判・考察・質問・再生成）の状態を視覚的に示す。
+4. When AIからの出力がストリーミングで返されたとき, the Autonomous AI Writing Suite shall 出力内容をWebview上でリアルタイムに追記表示し、ユーザーが途中経過を確認できるようにする。
+5. The Autonomous AI Writing Suite shall 既存のコマンドパレット経由の実行も維持し、WebviewとCommandの両方から同じ機能を実行可能にする。
+6. While Webviewが表示されている間, the Autonomous AI Writing Suite shall セッション一覧、テンプレート一覧、ペルソナ一覧を更新可能な状態で保ち、選択したアイテムの詳細をサイドパネルまたはモーダルで表示する。
+7. If ユーザーがWebview上でエラーが発生した場合, then the Autonomous AI Writing Suite shall エラーメッセージをWebview内に表示し、リトライまたはキャンセルのオプションを提供する。
+
+### Requirement 8: リアルタイムストリーミング処理と途中経過表示
+**Objective:** As a ユーザー, I want AI処理の途中経過をリアルタイムで確認したい, so that 生成内容を早期に把握し、必要に応じて中断や調整ができる
+
+#### Acceptance Criteria
+1. When AIモデルがテキスト生成を開始したとき, the Autonomous AI Writing Suite shall ストリーミングAPIを使用し、生成されたテキストをチャンク単位でWebviewへ送信する。
+2. Where 生成ステップまたは再生成ステップが実行中の場合, the Autonomous AI Writing Suite shall 受信したテキストチャンクを即座にWebviewの該当ステップ領域に追記し、スクロール位置を最新部分に自動調整する。
+3. When ユーザーがストリーミング中の処理を中断したとき, the Autonomous AI Writing Suite shall ストリーミングを停止し、それまでに受信した部分結果を保存するか破棄するかの選択肢を提示する。
+4. If ストリーミング中にネットワークエラーまたはタイムアウトが発生した場合, then the Autonomous AI Writing Suite shall エラー内容をWebviewに表示し、再試行オプションを提供する。
+5. The Autonomous AI Writing Suite shall ストリーミング処理中に「処理中」インジケーターを表示し、ユーザーが処理状態を常に把握できるようにする。
+6. While 複数ステップが連続して実行される場合, the Autonomous AI Writing Suite shall 各ステップの開始・完了をタイムスタンプ付きでWebviewに記録し、全体の進捗を可視化する。
+
 
