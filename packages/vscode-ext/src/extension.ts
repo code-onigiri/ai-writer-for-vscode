@@ -25,6 +25,7 @@ import { TemplateTreeDataProvider } from './views/template-tree-provider.js';
 import { ProgressPanelProvider } from './views/progress-panel-provider.js';
 import { MainDashboardPanel } from './views/main-dashboard-panel.js';
 import { SettingsPanel } from './views/settings-panel.js';
+import { SidebarWebviewProvider } from './views/sidebar-webview-provider.js';
 import { LanguageModelChatProvider } from './integrations/language-model-bridge.js';
 import { LanguageModelToolManager } from './integrations/language-model-tools.js';
 
@@ -79,13 +80,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     outputChannel.appendLine(`Could not initialize orchestrator/registry/personaManager: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // Create tree data providers
+  // Create tree data providers (kept for backward compatibility but hidden)
   const sessionTreeProvider = new SessionTreeDataProvider(sessionManager);
   const templateTreeProvider = new TemplateTreeDataProvider(templateRegistry);
   const templateDetailProvider = new TemplateDetailViewProvider(context.extensionUri, templateRegistry);
   const progressPanelProvider = new ProgressPanelProvider();
 
-  // Create GUI panels
+  // Create new sidebar webview provider
+  const sidebarProvider = new SidebarWebviewProvider(context.extensionUri);
+
+  // Create GUI panels (kept for backward compatibility)
   const mainDashboard = new MainDashboardPanel(
     context.extensionUri,
     async (action) => {
@@ -133,7 +137,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
   context.subscriptions.push(settingsPanel);
 
-  // Register tree views
+  // Register the new sidebar webview
+  const sidebarView = vscode.window.registerWebviewViewProvider(
+    SidebarWebviewProvider.viewType,
+    sidebarProvider
+  );
+  context.subscriptions.push(sidebarView);
+
+  // Register tree views (kept but hidden via when clause)
   const sessionsView = vscode.window.registerTreeDataProvider('ai-writer.sessionsView', sessionTreeProvider);
   const templatesView = vscode.window.registerTreeDataProvider('ai-writer.templatesView', templateTreeProvider);
   const templateDetailView = vscode.window.registerWebviewViewProvider('ai-writer.templateDetailView', templateDetailProvider);
@@ -146,6 +157,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     templateRegistry,
     personaManager,
     progressPanel: progressPanelProvider,
+    sidebarProvider,
     refreshSessions: () => sessionTreeProvider.refresh(),
     refreshTemplates: () => templateTreeProvider.refresh(),
     refreshPersonas: () => { 
@@ -156,6 +168,44 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   commandController = new CommandController(context, outputChannel, orchestrator, services);
+
+  // Update sidebar with initial data
+  if (templateRegistry) {
+    try {
+      const result = await templateRegistry.listTemplates();
+      if (result.kind === 'ok') {
+        sidebarProvider.updateTemplates(result.value.map(t => ({
+          id: t.id,
+          name: t.name,
+          description: undefined,
+          points: t.points?.map(p => ({
+            id: p.id,
+            title: p.title,
+            instructions: p.instructions,
+          })) || [],
+        })));
+      }
+    } catch (err) {
+      outputChannel.appendLine(`Failed to load templates for sidebar: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (personaManager) {
+    try {
+      const result = await personaManager.listPersonas();
+      if (result.kind === 'ok') {
+        sidebarProvider.updatePersonas(result.value.map(p => ({
+          id: p.id,
+          name: p.name,
+          tone: p.tone,
+          audience: p.audience,
+          parameters: {},
+        })));
+      }
+    } catch (err) {
+      outputChannel.appendLine(`Failed to load personas for sidebar: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   // Register generation commands
   commandController.registerCommand({

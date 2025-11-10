@@ -25,20 +25,26 @@
     "views": {
       "ai-writer": [
         {
+          "id": "ai-writer.sidebarView",
+          "name": "AI Writer",
+          "type": "webview",
+          "when": "true"
+        },
+        {
           "id": "ai-writer.sessionsView",
           "name": "Sessions",
-          "when": "true"
+          "when": "false"
         },
         {
           "id": "ai-writer.templatesView",
           "name": "Templates",
-          "when": "true"
+          "when": "false"
         },
         {
           "id": "ai-writer.templateDetailView",
           "name": "Template Details",
           "type": "webview",
-          "when": "true"
+          "when": "false"
         }
       ]
     },
