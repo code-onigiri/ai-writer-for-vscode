@@ -4,7 +4,13 @@ import * as path from 'path';
 import type { SessionSnapshot } from '../orchestration/types.js';
 import type { TemplateDescriptor } from '../template/types.js';
 import type { PersonaDefinition } from '../persona/types.js';
-import type { DraftCommitInput, StorageFault, StoragePathConfig, StorageResult } from './types.js';
+import type { 
+  DraftCommitInput, 
+  StorageFault, 
+  StoragePathConfig, 
+  StorageResult,
+  StorageStatistics,
+} from './types.js';
 
 /**
  * Storage Gateway interface
@@ -24,6 +30,10 @@ export interface StorageGateway {
   listPersonas(): Promise<StorageResult<readonly string[]>>;
   
   commitDraft(commitInput: DraftCommitInput): Promise<StorageResult<string>>;
+  
+  // Versioning and statistics
+  getStatistics(): Promise<StorageResult<StorageStatistics>>;
+  cleanup(olderThanDays: number): Promise<StorageResult<number>>;
 }
 
 /**
@@ -72,6 +82,12 @@ export function createStorageGateway(options: StorageGatewayOptions): StorageGat
     },
     commitDraft: async (commitInput: DraftCommitInput) => {
       return commitDraftImpl(commitInput, pathConfig);
+    },
+    getStatistics: async () => {
+      return getStatisticsImpl(pathConfig);
+    },
+    cleanup: async (olderThanDays: number) => {
+      return cleanupImpl(olderThanDays, pathConfig);
     },
   };
 }
@@ -347,6 +363,121 @@ async function listItemsImpl(directory: string): Promise<StorageResult<readonly 
       ),
     };
   }
+}
+
+/**
+ * Implementation of getStatistics
+ */
+async function getStatisticsImpl(
+  pathConfig: StoragePathConfig,
+): Promise<StorageResult<StorageStatistics>> {
+  try {
+    // Count items in each directory
+    const [sessionsList, templatesList, personasList] = await Promise.all([
+      listItemsImpl(pathConfig.sessionsDir),
+      listItemsImpl(pathConfig.templatesDir),
+      listItemsImpl(pathConfig.personasDir),
+    ]);
+
+    const totalSessions = sessionsList.kind === 'ok' ? sessionsList.value.length : 0;
+    const totalTemplates = templatesList.kind === 'ok' ? templatesList.value.length : 0;
+    const totalPersonas = personasList.kind === 'ok' ? personasList.value.length : 0;
+
+    // Calculate storage size by reading all directories
+    let storageSize = 0;
+    try {
+      storageSize = await calculateDirectorySize(pathConfig.baseDir);
+    } catch {
+      // Ignore errors in size calculation
+    }
+
+    return {
+      kind: 'ok',
+      value: {
+        totalSessions,
+        totalTemplates,
+        totalPersonas,
+        storageSize,
+        lastUpdated: new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    return {
+      kind: 'err',
+      error: createStorageFault(
+        'read_error',
+        `Failed to get statistics: ${error instanceof Error ? error.message : String(error)}`,
+        true,
+      ),
+    };
+  }
+}
+
+/**
+ * Implementation of cleanup
+ */
+async function cleanupImpl(
+  olderThanDays: number,
+  pathConfig: StoragePathConfig,
+): Promise<StorageResult<number>> {
+  try {
+    const cutoffTime = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
+    let deletedCount = 0;
+
+    // Cleanup old sessions
+    const sessionsResult = await listItemsImpl(pathConfig.sessionsDir);
+    if (sessionsResult.kind === 'ok') {
+      for (const sessionId of sessionsResult.value) {
+        const filePath = path.join(pathConfig.sessionsDir, `${sessionId}.json`);
+        try {
+          const stats = await fs.stat(filePath);
+          if (stats.mtimeMs < cutoffTime) {
+            await fs.unlink(filePath);
+            deletedCount++;
+          }
+        } catch {
+          // Ignore errors for individual files
+        }
+      }
+    }
+
+    return { kind: 'ok', value: deletedCount };
+  } catch (error) {
+    return {
+      kind: 'err',
+      error: createStorageFault(
+        'write_error',
+        `Failed to cleanup: ${error instanceof Error ? error.message : String(error)}`,
+        true,
+      ),
+    };
+  }
+}
+
+/**
+ * Calculate directory size recursively
+ */
+async function calculateDirectorySize(dir: string): Promise<number> {
+  let size = 0;
+  
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      
+      if (entry.isDirectory()) {
+        size += await calculateDirectorySize(fullPath);
+      } else if (entry.isFile()) {
+        const stats = await fs.stat(fullPath);
+        size += stats.size;
+      }
+    }
+  } catch {
+    // Return current size if error occurs
+  }
+  
+  return size;
 }
 
 /**
