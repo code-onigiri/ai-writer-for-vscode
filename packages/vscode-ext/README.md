@@ -13,6 +13,17 @@ VSCode拡張機能パッケージ - AI Writer自律型文章生成スイート�
 - [x] 出力チャネルでのログ表示
 - [x] 設定サービスブリッジ（SecretStorageとの連携）
 
+#### UI機能 ✨NEW
+- [x] **進行状況表示Webview** - 生成サイクルをリアルタイムで可視化
+  - タイムライン形式のステップ表示
+  - ストリーミングコンテンツ表示
+  - ステップごとの状態管理（pending/running/completed/error）
+- [x] **セッション一覧TreeView** - 過去のセッションをブラウズ
+- [x] **テンプレート管理TreeView** - テンプレート一覧と詳細表示
+- [x] **テンプレート詳細Webview** - ポイントごとの指示を確認
+- [x] **ステータスバー統合** - 現在のセッション状態を表示
+- [x] **SessionManager** - セッション状態の追跡と管理
+
 #### コマンド（全11個）
 
 **生成コマンド（2個）**
@@ -38,12 +49,11 @@ VSCode拡張機能パッケージ - AI Writer自律型文章生成スイート�
 
 以下の機能は`.kiro/specs/autonomous-ai-writing-suite/tasks.md`の実装計画に従って、順次実装予定です：
 
-- [ ] 進行状況表示Webview
 - [ ] テンプレート・ペルソナ編集UI（高度な編集機能）
 - [ ] 既存文章推敲UI
 - [ ] プロバイダー切替UI
 - [ ] Language Model Tool API連携
-- [ ] リアルタイムBase層統合（現在はモックデータ使用）
+- [ ] OrchestratorからのリアルタイムイベントによるUI更新（現在はシミュレーション）
 
 ## ビルド方法
 
@@ -73,14 +83,21 @@ src/
 ├── commands/              # コマンド関連
 │   ├── command-controller.ts  # コマンド登録と管理
 │   ├── handlers/          # 生成コマンドハンドラー
-│   ├── template-commands.ts   # テンプレート管理コマンド ✨NEW
-│   ├── persona-commands.ts    # ペルソナ管理コマンド ✨NEW
-│   ├── statistics-commands.ts # 統計・管理コマンド ✨NEW
+│   ├── template-commands.ts   # テンプレート管理コマンド
+│   ├── persona-commands.ts    # ペルソナ管理コマンド
+│   ├── statistics-commands.ts # 統計・管理コマンド
 │   ├── index.ts
 │   └── types.ts          # 型定義
 ├── configuration/        # 設定管理
 │   └── config-bridge.ts  # VSCode SecretStorageとBase層の橋渡し
-├── extension.ts          # エントリポイント（11コマンド登録）
+├── services/             # サービス層 ✨NEW
+│   └── session-manager.ts # セッション追跡と管理
+├── views/                # UI コンポーネント ✨NEW
+│   ├── progress-panel-provider.ts   # 進行状況Webview
+│   ├── session-tree-provider.ts     # セッション一覧TreeView
+│   ├── template-tree-provider.ts    # テンプレート一覧TreeView
+│   └── template-detail-view-provider.ts # テンプレート詳細Webview
+├── extension.ts          # エントリポイント（コマンドとビュー登録）
 └── index.ts             # エクスポート
 ```
 
@@ -94,6 +111,30 @@ src/
 4. **プロンプトに従う**: 対話的に入力を進めます
 
 ### 使用例
+
+#### アウトライン生成（進行状況表示付き）✨NEW
+```
+1. Cmd/Ctrl+Shift+P
+2. "AI Writer: Start Outline Generation"
+3. アイデアを入力（例：「AIと教育についての記事」）
+4. 進行状況Webviewが自動的に表示される
+5. 生成→批判のステップをリアルタイムで確認
+```
+
+#### セッション一覧の確認 ✨NEW
+```
+1. サイドバーの "AI Writer" アイコンをクリック
+2. "Sessions" ビューで過去のセッションを確認
+3. セッションをクリックしてプレビューを表示
+```
+
+#### テンプレート管理 ✨NEW
+```
+1. サイドバーの "AI Writer" アイコンをクリック
+2. "Templates" ビューでテンプレート一覧を表示
+3. テンプレートをクリックして詳細を確認
+4. "Template Details" ビューでポイントごとの指示を確認
+```
 
 #### テンプレート作成
 ```
