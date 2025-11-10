@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 
-import type { CommandContext, CommandHandler, OrchestratorLike } from './types.js';
+import type {
+  CommandContext,
+  CommandHandler,
+  ExtensionServices,
+  OrchestratorLike,
+} from './types.js';
 
 /**
  * Command descriptor
@@ -23,12 +28,14 @@ export class CommandController {
   constructor(
     extensionContext: vscode.ExtensionContext,
     outputChannel: vscode.OutputChannel,
-  orchestrator?: OrchestratorLike,
+    orchestrator?: OrchestratorLike,
+    services?: ExtensionServices,
   ) {
     this.context = {
       extensionContext,
       outputChannel,
       orchestrator,
+      services,
     };
   }
 
