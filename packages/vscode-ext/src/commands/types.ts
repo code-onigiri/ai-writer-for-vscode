@@ -133,6 +133,8 @@ export interface ExtensionServices {
   readonly templateRegistry?: TemplateRegistryLike;
   readonly personaManager?: PersonaManagerLike;
   readonly progressPanel: ProgressPanelProvider;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly sidebarProvider?: any; // SidebarWebviewProvider
   readonly refreshSessions: () => void;
   readonly refreshTemplates: () => void;
   readonly refreshPersonas: () => void;
