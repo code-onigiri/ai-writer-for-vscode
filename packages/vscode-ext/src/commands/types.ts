@@ -1,5 +1,6 @@
 import type * as vscode from 'vscode';
 import type { SessionManager } from '../services/session-manager.js';
+import type { ProgressPanelProvider } from '../views/progress-panel-provider.js';
 
 export interface TemplatePointLike {
   readonly id: string;
@@ -131,6 +132,7 @@ export interface ExtensionServices {
   readonly sessionManager: SessionManager;
   readonly templateRegistry?: TemplateRegistryLike;
   readonly personaManager?: PersonaManagerLike;
+  readonly progressPanel: ProgressPanelProvider;
   readonly refreshSessions: () => void;
   readonly refreshTemplates: () => void;
   readonly refreshPersonas: () => void;

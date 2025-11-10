@@ -48,6 +48,23 @@ export const startOutlineHandler: CommandHandler<StartOutlineInput, string> = as
 
     context.outputChannel.appendLine(`Starting outline generation for: ${idea}`);
 
+    // Show progress panel
+    if (context.services?.progressPanel) {
+      context.services.progressPanel.show({
+        sessionId: 'temp-' + Date.now(),
+        mode: 'outline',
+        currentStep: 'generate',
+        steps: [
+          {
+            type: 'generate',
+            status: 'running',
+            timestamp: new Date().toISOString(),
+          },
+        ],
+        isStreaming: true,
+      });
+    }
+
     const result = await context.orchestrator.startOutlineCycle({
       idea,
       personaId: input?.personaId,
@@ -57,6 +74,16 @@ export const startOutlineHandler: CommandHandler<StartOutlineInput, string> = as
 
     if (result.kind === 'ok' && result.value) {
       const sessionId = result.value.sessionId;
+      
+      // Update progress panel with completion
+      if (context.services?.progressPanel) {
+        context.services.progressPanel.updateState({
+          sessionId,
+          currentStep: 'completed',
+          isStreaming: false,
+        });
+      }
+
       vscode.window.showInformationMessage(`Started outline generation (Session: ${sessionId})`);
       return { kind: 'ok', value: sessionId };
     }

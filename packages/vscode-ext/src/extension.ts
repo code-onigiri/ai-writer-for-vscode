@@ -18,6 +18,7 @@ import { SessionManager } from './services/session-manager.js';
 import { SessionTreeDataProvider } from './views/session-tree-provider.js';
 import { TemplateDetailViewProvider } from './views/template-detail-view-provider.js';
 import { TemplateTreeDataProvider } from './views/template-tree-provider.js';
+import { ProgressPanelProvider } from './views/progress-panel-provider.js';
 
 import type { OrchestratorLike, TemplateRegistryLike } from './commands/types.js';
 
@@ -67,6 +68,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const sessionTreeProvider = new SessionTreeDataProvider(sessionManager);
   const templateTreeProvider = new TemplateTreeDataProvider(templateRegistry);
   const templateDetailProvider = new TemplateDetailViewProvider(context.extensionUri, templateRegistry);
+  const progressPanelProvider = new ProgressPanelProvider();
 
   // Register tree views
   const sessionsView = vscode.window.registerTreeDataProvider('ai-writer.sessionsView', sessionTreeProvider);
@@ -75,8 +77,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   
   context.subscriptions.push(sessionsView, templatesView, templateDetailView);
 
-  // Initialize command controller
-  commandController = new CommandController(context, outputChannel, orchestrator);
+  // Initialize command controller with services
+  const services = {
+    sessionManager,
+    templateRegistry,
+    progressPanel: progressPanelProvider,
+    refreshSessions: () => sessionTreeProvider.refresh(),
+    refreshTemplates: () => templateTreeProvider.refresh(),
+    refreshPersonas: () => { 
+      // TODO: implement when persona tree provider is added
+    },
+    openTemplateDetail: (templateId: string) => templateDetailProvider.showTemplate(templateId),
+    statusBar: statusBarItem,
+  };
+
+  commandController = new CommandController(context, outputChannel, orchestrator, services);
 
   // Register generation commands
   commandController.registerCommand({
