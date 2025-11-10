@@ -70,6 +70,16 @@ export const startOutlineHandler: CommandHandler<StartOutlineInput, string> = as
       // ストリーミングを開始
       context.services.progressPanel.startStreaming('generate');
 
+      // Update sidebar with task overview
+      if (context.services?.sidebarProvider) {
+        context.services.sidebarProvider.updateTaskOverview({
+          currentTask: `アウトライン生成: ${idea}`,
+          status: 'generating',
+          progress: 0,
+          streamingContent: '',
+        });
+      }
+
       // Simulate streaming for demonstration purposes
       // In real implementation, this would be driven by the orchestrator
       const simulateStreaming = async () => {
@@ -88,14 +98,34 @@ export const startOutlineHandler: CommandHandler<StartOutlineInput, string> = as
           '- 今後の展望\n',
         ];
 
-        for (const chunk of chunks) {
+        for (let i = 0; i < chunks.length; i++) {
           await new Promise(resolve => setTimeout(resolve, 200));
+          const chunk = chunks[i];
           context.services?.progressPanel.appendStreamContent('generate', chunk);
+          
+          // Also update sidebar
+          if (context.services?.sidebarProvider) {
+            context.services.sidebarProvider.appendStreamContent(chunk);
+            context.services.sidebarProvider.updateTaskOverview({
+              currentTask: `アウトライン生成: ${idea}`,
+              status: 'generating',
+              progress: Math.floor(((i + 1) / chunks.length) * 100),
+            });
+          }
         }
 
         // ストリーミングを終了
         await new Promise(resolve => setTimeout(resolve, 500));
         context.services?.progressPanel.stopStreaming('generate', chunks.join(''));
+        
+        // Update sidebar to completed
+        if (context.services?.sidebarProvider) {
+          context.services.sidebarProvider.updateTaskOverview({
+            currentTask: `アウトライン生成: ${idea}`,
+            status: 'idle',
+            progress: 100,
+          });
+        }
       };
 
       void simulateStreaming();

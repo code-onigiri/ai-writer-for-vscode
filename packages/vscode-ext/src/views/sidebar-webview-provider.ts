@@ -239,6 +239,20 @@ export class SidebarWebviewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  public appendStreamContent(chunk: string): void {
+    if (this.taskOverview.streamingContent === undefined) {
+      this.taskOverview.streamingContent = '';
+    }
+    this.taskOverview.streamingContent += chunk;
+    
+    if (this.view && this.currentTab === 'overview') {
+      this.view.webview.postMessage({
+        type: 'updateTaskOverview',
+        data: this.taskOverview,
+      });
+    }
+  }
+
   public updateOutlines(outlines: OutlineItem[]): void {
     this.outlines = outlines;
     if (this.view && this.currentTab === 'outline') {
