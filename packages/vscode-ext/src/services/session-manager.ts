@@ -52,6 +52,10 @@ export class SessionManager {
     });
   }
 
+  getAllSessions(): SessionRecord[] {
+    return this.getSessions();
+  }
+
   getSession(id: string): SessionRecord | undefined {
     return this.sessions.get(id);
   }

@@ -44,6 +44,18 @@
     },
     "commands": [
       {
+        "command": "ai-writer.showDashboard",
+        "title": "AI Writer: Show Dashboard",
+        "category": "AI Writer",
+        "icon": "$(home)"
+      },
+      {
+        "command": "ai-writer.openSettingsPanel",
+        "title": "AI Writer: Open Settings Panel",
+        "category": "AI Writer",
+        "icon": "$(settings-gear)"
+      },
+      {
         "command": "ai-writer.startOutline",
         "title": "AI Writer: Start Outline Generation",
         "category": "AI Writer"
@@ -144,9 +156,14 @@
     "menus": {
       "view/title": [
         {
+          "command": "ai-writer.showDashboard",
+          "when": "view == ai-writer.sessionsView",
+          "group": "navigation@1"
+        },
+        {
           "command": "ai-writer.refreshSessions",
           "when": "view == ai-writer.sessionsView",
-          "group": "navigation"
+          "group": "navigation@2"
         },
         {
           "command": "ai-writer.refreshTemplates",

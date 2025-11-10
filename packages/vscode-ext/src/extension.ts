@@ -23,6 +23,8 @@ import { SessionTreeDataProvider } from './views/session-tree-provider.js';
 import { TemplateDetailViewProvider } from './views/template-detail-view-provider.js';
 import { TemplateTreeDataProvider } from './views/template-tree-provider.js';
 import { ProgressPanelProvider } from './views/progress-panel-provider.js';
+import { MainDashboardPanel } from './views/main-dashboard-panel.js';
+import { SettingsPanel } from './views/settings-panel.js';
 import { LanguageModelChatProvider } from './integrations/language-model-bridge.js';
 import { LanguageModelToolManager } from './integrations/language-model-tools.js';
 
@@ -82,6 +84,54 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const templateTreeProvider = new TemplateTreeDataProvider(templateRegistry);
   const templateDetailProvider = new TemplateDetailViewProvider(context.extensionUri, templateRegistry);
   const progressPanelProvider = new ProgressPanelProvider();
+
+  // Create GUI panels
+  const mainDashboard = new MainDashboardPanel(
+    context.extensionUri,
+    async (action) => {
+      switch (action.type) {
+        case 'startOutline':
+          await vscode.commands.executeCommand('ai-writer.startOutline');
+          break;
+        case 'startDraft':
+          await vscode.commands.executeCommand('ai-writer.startDraft');
+          break;
+        case 'openSettings':
+          await vscode.commands.executeCommand('ai-writer.openSettingsPanel');
+          break;
+        case 'openSession':
+          if (action.payload && typeof action.payload === 'object' && 'sessionId' in action.payload) {
+            await vscode.commands.executeCommand('ai-writer.openSession', action.payload.sessionId);
+          }
+          break;
+        case 'openTemplate':
+          if (action.payload && typeof action.payload === 'object' && 'templateId' in action.payload) {
+            await vscode.commands.executeCommand('ai-writer.showTemplateDetails', action.payload.templateId);
+          }
+          break;
+      }
+    }
+  );
+  context.subscriptions.push(mainDashboard);
+
+  const settingsPanel = new SettingsPanel(
+    context.extensionUri,
+    async (data) => {
+      if (data.providers) {
+        outputChannel.appendLine(`Saving ${data.providers.length} provider configurations`);
+        // TODO: Implement actual saving logic
+      }
+      if (data.templates) {
+        outputChannel.appendLine(`Saving ${data.templates.length} template configurations`);
+        // TODO: Implement actual saving logic
+      }
+      if (data.personas) {
+        outputChannel.appendLine(`Saving ${data.personas.length} persona configurations`);
+        // TODO: Implement actual saving logic
+      }
+    }
+  );
+  context.subscriptions.push(settingsPanel);
 
   // Register tree views
   const sessionsView = vscode.window.registerTreeDataProvider('ai-writer.sessionsView', sessionTreeProvider);
@@ -258,6 +308,97 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     description: 'Refresh the templates view',
     handler: async () => {
       templateTreeProvider.refresh();
+      return { kind: 'ok' as const, value: undefined };
+    },
+  });
+
+  // Register GUI panel commands
+  commandController.registerCommand({
+    id: 'ai-writer.showDashboard',
+    title: 'AI Writer: Show Dashboard',
+    description: 'Show the main AI Writer dashboard',
+    handler: async () => {
+      mainDashboard.show();
+      // Update dashboard with current data
+      const sessions = sessionManager.getAllSessions().map((s: { id: string; mode: 'outline' | 'draft'; idea?: string; updatedAt: string }) => ({
+        id: s.id,
+        mode: s.mode,
+        idea: s.idea,
+        updatedAt: s.updatedAt,
+      }));
+      mainDashboard.updateSessions(sessions);
+      
+      // Update templates if available
+      if (templateRegistry) {
+        try {
+          const templates = await templateRegistry.listTemplates();
+          if (templates.kind === 'ok') {
+            mainDashboard.updateTemplates(templates.value.map(t => ({
+              id: t.id,
+              name: t.name,
+              points: t.points ? t.points.map(p => ({ id: p.id })) : [],
+            })));
+          }
+        } catch (err) {
+          outputChannel.appendLine(`Failed to load templates: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+      return { kind: 'ok' as const, value: undefined };
+    },
+  });
+
+  commandController.registerCommand({
+    id: 'ai-writer.openSettingsPanel',
+    title: 'AI Writer: Open Settings Panel',
+    description: 'Open the settings panel for configuring AI Writer',
+    handler: async () => {
+      // Load current settings
+      const providers = [
+        { id: 'openai', name: 'OpenAI', enabled: true, model: 'gpt-4', temperature: 0.7 },
+        { id: 'gemini', name: 'Google Gemini', enabled: false, model: 'gemini-pro', temperature: 0.7 },
+      ];
+      
+      const templates: Array<{ id: string; name: string; description?: string; points: Array<{ id: string; title: string; instructions: string }> }> = [];
+      if (templateRegistry) {
+        try {
+          const result = await templateRegistry.listTemplates();
+          if (result.kind === 'ok') {
+            templates.push(...result.value.map(t => ({
+              id: t.id,
+              name: t.name,
+              description: undefined, // description not available in TemplateDescriptorLike
+              points: t.points?.map(p => ({
+                id: p.id,
+                title: p.title,
+                instructions: p.instructions,
+              })) || [],
+            })));
+          }
+        } catch (err) {
+          outputChannel.appendLine(`Failed to load templates: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
+      const personas: Array<{ id: string; name: string; enabled: boolean; tone?: string; audience?: string; parameters: Record<string, string> }> = [];
+      if (personaManager) {
+        try {
+          const result = await personaManager.listPersonas();
+          if (result.kind === 'ok') {
+            personas.push(...result.value.map(p => ({
+              id: p.id,
+              name: p.name,
+              enabled: true, // enabled not available in PersonaDefinitionLike
+              tone: p.tone,
+              audience: p.audience,
+              parameters: {}, // parameters not available in PersonaDefinitionLike
+            })));
+          }
+        } catch (err) {
+          outputChannel.appendLine(`Failed to load personas: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
+      settingsPanel.show({ providers, templates, personas });
       return { kind: 'ok' as const, value: undefined };
     },
   });
